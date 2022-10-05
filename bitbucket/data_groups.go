@@ -39,6 +39,10 @@ func dataGroups() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
+						"email_forwarding_disabled": {
+							Type:     schema.TypeBool,
+							Computed: true,
+						},
 					},
 				},
 			},
