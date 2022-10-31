@@ -212,14 +212,14 @@ func resourceBranchRestrictionsRead(ctx context.Context, d *schema.ResourceData,
 	brRes, res, err := brApi.RepositoriesWorkspaceRepoSlugBranchRestrictionsIdGet(c.AuthContext, url.PathEscape(d.Id()),
 		d.Get("repository").(string), d.Get("owner").(string))
 
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if res.StatusCode == http.StatusNotFound {
+	if res != nil && res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Branch Restrictions (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return nil
+	}
+
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%v", brRes.Id)))
@@ -254,8 +254,13 @@ func resourceBranchRestrictionsDelete(ctx context.Context, d *schema.ResourceDat
 	c := m.(Clients).genClient
 	brApi := c.ApiClient.BranchRestrictionsApi
 
-	_, err := brApi.RepositoriesWorkspaceRepoSlugBranchRestrictionsIdDelete(c.AuthContext, url.PathEscape(d.Id()),
+	res, err := brApi.RepositoriesWorkspaceRepoSlugBranchRestrictionsIdDelete(c.AuthContext, url.PathEscape(d.Id()),
 		d.Get("repository").(string), d.Get("owner").(string))
+
+	if res != nil && res.StatusCode == http.StatusNotFound {
+		log.Printf("[WARN] Branch Restrictions (%s) not found, removing from state", d.Id())
+		return nil
+	}
 
 	if err != nil {
 		return diag.FromErr(err)
