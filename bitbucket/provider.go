@@ -6,8 +6,8 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/DrFaust92/bitbucket-go-client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/strollby/bitbucket-go-client"
 )
 
 type ProviderConfig struct {

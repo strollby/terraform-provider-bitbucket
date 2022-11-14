@@ -37,7 +37,7 @@ Using the provider
 terraform {
   required_providers {
     bitbucket = {
-      source  = "DrFaust92/bitbucket"
+      source  = "strollby/bitbucket"
       version = "version-here"
     }
   }

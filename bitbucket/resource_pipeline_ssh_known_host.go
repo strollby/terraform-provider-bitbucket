@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DrFaust92/bitbucket-go-client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
+	"github.com/strollby/bitbucket-go-client"
 )
 
 func resourcePipelineSshKnownHost() *schema.Resource {
