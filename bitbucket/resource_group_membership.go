@@ -3,7 +3,7 @@ package bitbucket
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -88,7 +88,7 @@ func resourceGroupMembershipsRead(d *schema.ResourceData, m interface{}) error {
 
 	var members []*UserGroupMembership
 
-	body, readerr := ioutil.ReadAll(groupsReq.Body)
+	body, readerr := io.ReadAll(groupsReq.Body)
 	if readerr != nil {
 		return readerr
 	}

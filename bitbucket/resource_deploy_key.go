@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -73,7 +73,7 @@ func resourceDeployKeysCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	body, readerr := ioutil.ReadAll(deployKeyReq.Body)
+	body, readerr := io.ReadAll(deployKeyReq.Body)
 	if readerr != nil {
 		return readerr
 	}

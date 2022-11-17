@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -157,7 +157,7 @@ func resourceBranchingModelsPut(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	body, readerr := ioutil.ReadAll(branchingModelReq.Body)
+	body, readerr := io.ReadAll(branchingModelReq.Body)
 	if readerr != nil {
 		return readerr
 	}
@@ -192,7 +192,7 @@ func resourceBranchingModelsRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	var branchingModel *BranchingModel
-	body, readerr := ioutil.ReadAll(branchingModelsReq.Body)
+	body, readerr := io.ReadAll(branchingModelsReq.Body)
 	if readerr != nil {
 		return readerr
 	}

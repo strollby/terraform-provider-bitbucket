@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -151,7 +151,7 @@ func resourceHookCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	body, readerr := ioutil.ReadAll(hookReq.Body)
+	body, readerr := io.ReadAll(hookReq.Body)
 	if readerr != nil {
 		return readerr
 	}
@@ -189,7 +189,7 @@ func resourceHookRead(d *schema.ResourceData, m interface{}) error {
 	if hookReq.StatusCode == 200 {
 		var hook Hook
 
-		body, readerr := ioutil.ReadAll(hookReq.Body)
+		body, readerr := io.ReadAll(hookReq.Body)
 		if readerr != nil {
 			return readerr
 		}

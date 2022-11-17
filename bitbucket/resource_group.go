@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -75,7 +75,7 @@ func resourceGroupsCreate(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	body, readerr := ioutil.ReadAll(groupReq.Body)
+	body, readerr := io.ReadAll(groupReq.Body)
 	if readerr != nil {
 		return readerr
 	}
@@ -116,7 +116,7 @@ func resourceGroupsRead(d *schema.ResourceData, m interface{}) error {
 
 	var grp *UserGroup
 
-	body, readerr := ioutil.ReadAll(groupsReq.Body)
+	body, readerr := io.ReadAll(groupsReq.Body)
 	if readerr != nil {
 		return readerr
 	}

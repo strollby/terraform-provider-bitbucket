@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -87,7 +87,7 @@ func resourceDeploymentCreate(d *schema.ResourceData, m interface{}) error {
 
 	var deployment Deployment
 
-	body, readerr := ioutil.ReadAll(req.Body)
+	body, readerr := io.ReadAll(req.Body)
 	if readerr != nil {
 		return readerr
 	}
@@ -114,7 +114,7 @@ func resourceDeploymentRead(d *schema.ResourceData, m interface{}) error {
 
 	if req.StatusCode == 200 {
 		var Deployment Deployment
-		body, readerr := ioutil.ReadAll(req.Body)
+		body, readerr := io.ReadAll(req.Body)
 		if readerr != nil {
 			return readerr
 		}
