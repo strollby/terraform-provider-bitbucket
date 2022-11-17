@@ -2,7 +2,7 @@ package bitbucket
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -44,7 +44,7 @@ func dataReadPipelineOidcConfigKeys(d *schema.ResourceData, m interface{}) error
 		return fmt.Errorf("internal server error fetching user")
 	}
 
-	body, readerr := ioutil.ReadAll(req.Body)
+	body, readerr := io.ReadAll(req.Body)
 	if readerr != nil {
 		return readerr
 	}

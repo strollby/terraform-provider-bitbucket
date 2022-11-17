@@ -3,7 +3,7 @@ package bitbucket
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -89,7 +89,7 @@ func dataReadCurrentUser(d *schema.ResourceData, m interface{}) error {
 		return err
 	}
 
-	emailBody, readerr := ioutil.ReadAll(curUserEmails.Body)
+	emailBody, readerr := io.ReadAll(curUserEmails.Body)
 	if readerr != nil {
 		return readerr
 	}

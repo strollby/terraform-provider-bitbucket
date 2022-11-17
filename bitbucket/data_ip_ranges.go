@@ -3,7 +3,7 @@ package bitbucket
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
@@ -84,7 +84,7 @@ func dataReadIPRanges(d *schema.ResourceData, m interface{}) error {
 		return fmt.Errorf("IP whitelist not found")
 	}
 
-	body, readerr := ioutil.ReadAll(req.Body)
+	body, readerr := io.ReadAll(req.Body)
 	if readerr != nil {
 		return readerr
 	}

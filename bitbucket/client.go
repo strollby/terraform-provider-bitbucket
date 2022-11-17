@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net/http"
 )
@@ -82,7 +81,7 @@ func (c *Client) Do(method, endpoint string, payload *bytes.Buffer, addJsonHeade
 			Endpoint:   endpoint,
 		}
 
-		body, err := ioutil.ReadAll(resp.Body)
+		body, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, err
 		}
