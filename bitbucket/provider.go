@@ -56,6 +56,7 @@ func Provider() *schema.Provider {
 			"bitbucket_forked_repository":         resourceForkedRepository(),
 			"bitbucket_repository_variable":       resourceRepositoryVariable(),
 			"bitbucket_project":                   resourceProject(),
+			"bitbucket_project_branching_model":   resourceProjectBranchingModel(),
 			"bitbucket_project_default_reviewers": resourceProjectDefaultReviewers(),
 			"bitbucket_deploy_key":                resourceDeployKey(),
 			"bitbucket_pipeline_ssh_key":          resourcePipelineSshKey(),
