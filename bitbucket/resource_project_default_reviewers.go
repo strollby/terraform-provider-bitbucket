@@ -11,21 +11,6 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
-// // Reviewer is teh default reviewer you want
-// type Reviewer struct {
-// 	DisplayName string `json:"display_name,omitempty"`
-// 	UUID        string `json:"uuid,omitempty"`
-// 	Type        string `json:"type,omitempty"`
-// }
-
-// // PaginatedReviewers is a paginated list that the bitbucket api returns
-// type PaginatedReviewers struct {
-// 	Values []Reviewer `json:"values,omitempty"`
-// 	Page   int        `json:"page,omitempty"`
-// 	Size   int        `json:"size,omitempty"`
-// 	Next   string     `json:"next,omitempty"`
-// }
-
 func resourceProjectDefaultReviewers() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceProjectDefaultReviewersCreate,
