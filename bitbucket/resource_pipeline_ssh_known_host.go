@@ -18,7 +18,7 @@ func resourcePipelineSshKnownHost() *schema.Resource {
 		Update: resourcePipelineSshKnownHostsUpdate,
 		Delete: resourcePipelineSshKnownHostsDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{

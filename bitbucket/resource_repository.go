@@ -20,7 +20,7 @@ func resourceRepository() *schema.Resource {
 		Read:   resourceRepositoryRead,
 		Delete: resourceRepositoryDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"scm": {

@@ -41,7 +41,7 @@ func resourceBranchingModel() *schema.Resource {
 		Update: resourceBranchingModelsPut,
 		Delete: resourceBranchingModelsDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
