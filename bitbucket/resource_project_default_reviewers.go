@@ -18,7 +18,7 @@ func resourceProjectDefaultReviewers() *schema.Resource {
 		Update: resourceProjectDefaultReviewersUpdate,
 		Delete: resourceProjectDefaultReviewersDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
