@@ -32,7 +32,7 @@ func resourceDefaultReviewers() *schema.Resource {
 		Update: resourceDefaultReviewersUpdate,
 		Delete: resourceDefaultReviewersDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
