@@ -16,7 +16,7 @@ OAuth2 Scopes: `project:admin`
 
 ```hcl
 data "bitbucket_user" "reviewer" {
-  account_id = "gob"
+  uuid = "{account UUID}"
 }
 
 resource "bitbucket_project_default_reviewers" "infrastructure" {
