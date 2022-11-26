@@ -39,6 +39,7 @@ The following arguments are supported:
 * `pattern` - (Optional) Apply the restriction to branches that match this pattern. Active when `branch_match_kind` is `glob`. Will be empty when `branch_match_kind` is `branching_model`.
 * `users` - (Optional) A list of users to use.
 * `groups` - (Optional) A list of groups to use.
+* `value` - (Optional) A value applied to the restriction kind. Currently only applicable to `require_passing_builds_to_merge`, `require_default_reviewer_approvals_to_merge` and `require_approvals_to_merge`.
 
 ## Import
 
