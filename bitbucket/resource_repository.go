@@ -270,7 +270,7 @@ func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
 	d.Set("has_wiki", repoRes.HasWiki)
 	d.Set("has_issues", repoRes.HasIssues)
 	d.Set("name", repoRes.Name)
-	d.Set("slug", repoRes.Name)
+	d.Set("slug", repoRes.Slug)
 	d.Set("language", repoRes.Language)
 	d.Set("fork_policy", repoRes.ForkPolicy)
 	// d.Set("website", repoRes.Website)

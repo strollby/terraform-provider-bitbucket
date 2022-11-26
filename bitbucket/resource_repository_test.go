@@ -107,6 +107,34 @@ func TestAccBitbucketRepository_avatar(t *testing.T) {
 	})
 }
 
+func TestAccBitbucketRepository_slug(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-test")
+	rSlug := acctest.RandomWithPrefix("tf-test")
+	testUser := os.Getenv("BITBUCKET_TEAM")
+	resourceName := "bitbucket_repository.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckBitbucketRepositoryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBitbucketRepoSlugConfig(testUser, rName, rSlug),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketRepositoryExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "slug", rSlug),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+		},
+	})
+}
+
 func testAccBitbucketRepoConfig(testUser, rName string) string {
 	return fmt.Sprintf(`
 resource "bitbucket_repository" "test" {
@@ -147,14 +175,14 @@ resource "bitbucket_repository" "test" {
 `, testUser, rName)
 }
 
-func testAccBitbucketRepoSlugConfig(testUser, rName, rName2 string) string {
+func testAccBitbucketRepoSlugConfig(testUser, rName, rSlug string) string {
 	return fmt.Sprintf(`
 resource "bitbucket_repository" "test" {
   owner = %[1]q
   name  = %[2]q
   slug  = %[3]q
 }
-`, testUser, rName, rName2)
+`, testUser, rName, rSlug)
 }
 
 func testAccCheckBitbucketRepositoryDestroy(s *terraform.State) error {
