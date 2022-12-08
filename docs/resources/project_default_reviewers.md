@@ -40,5 +40,5 @@ The following arguments are supported:
 Project Default Reviewers can be imported using the workspace and project separated by a (`/`) and the end, e.g.,
 
 ```sh
-terraform import bitbucket_project.example myteam/terraform-code
+terraform import bitbucket_project_default_reviewers.example myteam/terraform-code
 ```
