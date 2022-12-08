@@ -16,7 +16,7 @@ OAuth2 Scopes: `pullrequest` and `repository:admin`
 
 ```hcl
 data "bitbucket_user" "reviewer" {
-  account_id = "gob"
+  uuid = "{account UUID}"
 }
 
 resource "bitbucket_default_reviewers" "infrastructure" {
@@ -41,5 +41,5 @@ The following arguments are supported:
 Default Reviewers can be imported using the owner and repo separated by a (`/`) and the string `reviewers` and the end, e.g.,
 
 ```sh
-terraform import bitbucket_repository.example myteam/terraform-code/reviewers
+terraform import bitbucket_default_reviewers.example myteam/terraform-code/reviewers
 ```
