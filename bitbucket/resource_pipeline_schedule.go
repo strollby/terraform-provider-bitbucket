@@ -102,6 +102,14 @@ func resourcePipelineScheduleCreate(d *schema.ResourceData, m interface{}) error
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repo, schedule.Uuid)))
 
+	if !d.Get("enabled").(bool) {
+		_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, schedule.Uuid)
+
+		if err != nil {
+			return fmt.Errorf("error setting pipeline schedule to disabled: %w", err)
+		}
+	}
+
 	return resourcePipelineScheduleRead(d, m)
 }
 

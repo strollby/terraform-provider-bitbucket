@@ -40,3 +40,9 @@ func testAccPreCheck(t *testing.T) {
 		t.Fatal("BITBUCKET_TEAM must be set for acceptence tests")
 	}
 }
+
+func testAccPreCheckPipeSchedule(t *testing.T) {
+	if v := os.Getenv("BITBUCKET_PIPELINED_REPO"); v == "" {
+		t.Fatal("BITBUCKET_PIPELINED_REPO must be set for acceptence tests")
+	}
+}
