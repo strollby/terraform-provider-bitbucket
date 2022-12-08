@@ -3,7 +3,7 @@ layout: "bitbucket"
 page_title: "Bitbucket: bitbucket_user"
 sidebar_current: "docs-bitbucket-data-user"
 description: |-
-  Provides a data for a Bitbucket user
+  Provides data for a Bitbucket user
 ---
 
 # bitbucket\_user
@@ -14,7 +14,7 @@ Provides a way to fetch data on a user.
 
 ```hcl
 data "bitbucket_user" "reviewer" {
-  account_id = "gob"
+  uuid = "{account UUID}"
 }
 ```
 

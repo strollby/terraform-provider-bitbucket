@@ -16,7 +16,7 @@ OAuth2 Scopes: `pullrequest` and `repository:admin`
 
 ```hcl
 data "bitbucket_user" "reviewer" {
-  account_id = "gob"
+  uuid = "{account UUID}"
 }
 
 resource "bitbucket_default_reviewers" "infrastructure" {
