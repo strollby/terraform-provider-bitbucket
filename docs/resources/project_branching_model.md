@@ -25,7 +25,7 @@ resource "bitbucket_project" "example" {
 
 resource "bitbucket_project_branching_model" "example" {
   workspace = "example"
-  pronect   = bitbucket_project.example.key
+  project   = bitbucket_project.example.key
 
   development {
     use_mainbranch = true
