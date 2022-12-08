@@ -18,7 +18,10 @@ func TestAccBitbucketPipelineSchedule_basic(t *testing.T) {
 	repo := os.Getenv("BITBUCKET_PIPELINED_REPO")
 
 	resource.Test(t, resource.TestCase{
-		PreCheck:     func() { testAccPreCheck(t) },
+		PreCheck: func() {
+			testAccPreCheck(t)
+			testAccPreCheckPipeSchedule(t)
+		},
 		Providers:    testAccProviders,
 		CheckDestroy: testAccCheckBitbucketPipelineScheduleDestroy,
 		Steps: []resource.TestStep{
@@ -44,6 +47,50 @@ func TestAccBitbucketPipelineSchedule_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "workspace", workspace),
 					resource.TestCheckResourceAttr(resourceName, "repository", repo),
 					resource.TestCheckResourceAttr(resourceName, "enabled", "false"),
+					resource.TestCheckResourceAttr(resourceName, "cron_pattern", "0 30 * * * ? *"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccBitbucketPipelineSchedule_disabled(t *testing.T) {
+	resourceName := "bitbucket_pipeline_schedule.test"
+
+	workspace := os.Getenv("BITBUCKET_TEAM")
+	//because the schedule resource requires a pipe already defined we are passing here a bootstrapped repo
+	repo := os.Getenv("BITBUCKET_PIPELINED_REPO")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck: func() {
+			testAccPreCheck(t)
+			testAccPreCheckPipeSchedule(t)
+		},
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckBitbucketPipelineScheduleDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBitbucketPipelineScheduleConfig(workspace, repo, false),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketPipelineScheduleExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "workspace", workspace),
+					resource.TestCheckResourceAttr(resourceName, "repository", repo),
+					resource.TestCheckResourceAttr(resourceName, "enabled", "false"),
+					resource.TestCheckResourceAttr(resourceName, "cron_pattern", "0 30 * * * ? *"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccBitbucketPipelineScheduleConfig(workspace, repo, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketPipelineScheduleExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "workspace", workspace),
+					resource.TestCheckResourceAttr(resourceName, "repository", repo),
+					resource.TestCheckResourceAttr(resourceName, "enabled", "true"),
 					resource.TestCheckResourceAttr(resourceName, "cron_pattern", "0 30 * * * ? *"),
 				),
 			},
