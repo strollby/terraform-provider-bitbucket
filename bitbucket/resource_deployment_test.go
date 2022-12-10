@@ -16,6 +16,8 @@ func TestAccBitbucketDeployment_basic(t *testing.T) {
 
 	resourceName := "bitbucket_deployment.test"
 	rName := acctest.RandomWithPrefix("tf-test")
+	rNameUpdated := acctest.RandomWithPrefix("tf-test")
+
 	owner := os.Getenv("BITBUCKET_TEAM")
 
 	resource.Test(t, resource.TestCase{
@@ -24,7 +26,7 @@ func TestAccBitbucketDeployment_basic(t *testing.T) {
 		CheckDestroy: testAccCheckBitbucketDeploymentDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBitbucketDeployment(owner, rName),
+				Config: testAccBitbucketDeployment(owner, rName, rName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBitbucketDeploymentExists(resourceName, &deploy),
 					resource.TestCheckResourceAttr(resourceName, "name", rName),
@@ -36,6 +38,15 @@ func TestAccBitbucketDeployment_basic(t *testing.T) {
 				ResourceName:      resourceName,
 				ImportState:       true,
 				ImportStateVerify: true,
+			},
+			{
+				Config: testAccBitbucketDeployment(owner, rName, rNameUpdated),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketDeploymentExists(resourceName, &deploy),
+					resource.TestCheckResourceAttr(resourceName, "name", rNameUpdated),
+					resource.TestCheckResourceAttr(resourceName, "stage", "Staging"),
+					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "id"),
+				),
 			},
 		},
 	})
@@ -70,7 +81,7 @@ func testAccCheckBitbucketDeploymentExists(n string, deployment *Deployment) res
 	}
 }
 
-func testAccBitbucketDeployment(workspace, rName string) string {
+func testAccBitbucketDeployment(workspace, repoName, deployName string) string {
 	return fmt.Sprintf(`
 resource "bitbucket_repository" "test" {
   owner = %[1]q
@@ -78,9 +89,9 @@ resource "bitbucket_repository" "test" {
 }
 
 resource "bitbucket_deployment" "test" {
-  name       = %[2]q
+  name       = %[3]q
   stage      = "Staging"
   repository = bitbucket_repository.test.id
 }
-`, workspace, rName)
+`, workspace, repoName, deployName)
 }

@@ -24,6 +24,14 @@ type Stage struct {
 	Name string `json:"name"`
 }
 
+type Changes struct {
+	Change *Change `json:"change"`
+}
+
+type Change struct {
+	Name string `json:"name"`
+}
+
 func resourceDeployment() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceDeploymentCreate,
@@ -46,6 +54,7 @@ func resourceDeployment() *schema.Resource {
 			"stage": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 				ValidateFunc: validation.StringInSlice([]string{
 					"Test",
 					"Staging",
@@ -56,6 +65,7 @@ func resourceDeployment() *schema.Resource {
 			"repository": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 			},
 		},
 	}
@@ -151,13 +161,18 @@ func resourceDeploymentRead(d *schema.ResourceData, m interface{}) error {
 
 func resourceDeploymentUpdate(d *schema.ResourceData, m interface{}) error {
 	client := m.(Clients).httpClient
-	rvcr := newDeploymentFromResource(d)
+	rvcr := &Changes{
+		Change: &Change{
+			Name: d.Get("name").(string),
+		},
+	}
 	bytedata, err := json.Marshal(rvcr)
 
 	if err != nil {
 		return err
 	}
-	req, err := client.Put(fmt.Sprintf("2.0/repositories/%s/environments/%s",
+
+	req, err := client.Post(fmt.Sprintf("2.0/repositories/%s/environments/%s/changes/",
 		d.Get("repository").(string),
 		d.Get("uuid").(string),
 	), bytes.NewBuffer(bytedata))
