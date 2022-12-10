@@ -6,25 +6,17 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
 func TestAccBitbucketDeployment_basic(t *testing.T) {
-	var repo Deployment
+	var deploy Deployment
 
-	testUser := os.Getenv("BITBUCKET_USERNAME")
-	testAccBitbucketDeploymentConfig := fmt.Sprintf(`
-		resource "bitbucket_repository "test_repo" {
-			owner = "%s"
-			name = "test-repo-for-deployment-test"
-		}
-		resource "bitbucket_deployment" "test_deploy" {
-			name = "test_deploy"
-            stage = "Staging"
-            repository = bitbucket_repository.test_repo.id
-		}
-	`, testUser)
+	resourceName := "bitbucket_deployment.test"
+	rName := acctest.RandomWithPrefix("tf-test")
+	owner := os.Getenv("BITBUCKET_TEAM")
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -32,9 +24,12 @@ func TestAccBitbucketDeployment_basic(t *testing.T) {
 		CheckDestroy: testAccCheckBitbucketDeploymentDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBitbucketDeploymentConfig,
+				Config: testAccBitbucketDeployment(owner, rName),
 				Check: resource.ComposeTestCheckFunc(
-					testAccCheckBitbucketDeploymentExists("bitbucket_deployment.test_deploy", &repo),
+					testAccCheckBitbucketDeploymentExists(resourceName, &deploy),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "stage", "Staging"),
+					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "id"),
 				),
 			},
 		},
@@ -43,9 +38,9 @@ func TestAccBitbucketDeployment_basic(t *testing.T) {
 
 func testAccCheckBitbucketDeploymentDestroy(s *terraform.State) error {
 	client := testAccProvider.Meta().(Clients).httpClient
-	rs, ok := s.RootModule().Resources["bitbucket_deployment.test_deploy"]
+	rs, ok := s.RootModule().Resources["bitbucket_deployment.test"]
 	if !ok {
-		return fmt.Errorf("Not found %s", "bitbucket_deployment.test_deploy")
+		return fmt.Errorf("Not found %s", "bitbucket_deployment.test")
 	}
 
 	response, _ := client.Get(fmt.Sprintf("2.0/repositories/%s/%s", rs.Primary.Attributes["owner"], rs.Primary.Attributes["name"]))
@@ -68,4 +63,19 @@ func testAccCheckBitbucketDeploymentExists(n string, deployment *Deployment) res
 		}
 		return nil
 	}
+}
+
+func testAccBitbucketDeployment(workspace, rName string) string {
+	return fmt.Sprintf(`
+resource "bitbucket_repository" "test" {
+  owner = %[1]q
+  name  = %[2]q
+}
+
+resource "bitbucket_deployment" "test" {
+  name       = %[2]q
+  stage      = "Staging"
+  repository = bitbucket_repository.test.id
+}
+`, workspace, rName)
 }
