@@ -17,6 +17,17 @@ func resourceDeploymentVariable() *schema.Resource {
 		Update: resourceDeploymentVariableUpdate,
 		Read:   resourceDeploymentVariableRead,
 		Delete: resourceDeploymentVariableDelete,
+		Importer: &schema.ResourceImporter{
+			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				idParts := strings.Split(d.Id(), "/")
+				if len(idParts) != 3 || idParts[0] == "" || idParts[1] == "" || idParts[2] == "" {
+					return nil, fmt.Errorf("unexpected format of ID (%q), expected DEPLOYMENT-ID/DEPLOYMENT-VARIABLE-ID", d.Id())
+				}
+				d.SetId(idParts[2])
+				d.Set("deployment", strings.Join([]string{idParts[0], idParts[1]}, "/"))
+				return []*schema.ResourceData{d}, nil
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"uuid": {

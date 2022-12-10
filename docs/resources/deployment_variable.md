@@ -44,3 +44,11 @@ resource "bitbucket_deployment_variable" "country" {
 ## Attributes Reference
 
 * `uuid` - (Computed) The UUID identifying the variable.
+
+## Import
+
+Deployment Variables can be imported using their `deployment-id/uuid` ID, e.g.
+
+```sh
+terraform import bitbucket_deployment_variable.example deployment-id/uuid
+```
