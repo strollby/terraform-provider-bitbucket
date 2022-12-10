@@ -32,6 +32,12 @@ func TestAccBitbucketDeploymentVariable_basic(t *testing.T) {
 				),
 			},
 			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateIdFunc: testAccBitbucketDeploymentVariableImportStateIdFunc(resourceName),
+				ImportStateVerify: true,
+			},
+			{
 				Config: testAccBitbucketDeploymentVariableConfig(owner, rName, "test-2", false),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBitbucketDeploymentVariableExists(resourceName),
@@ -64,6 +70,13 @@ func TestAccBitbucketDeploymentVariable_secure(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "value", "test"),
 					resource.TestCheckResourceAttr(resourceName, "secured", "true"),
 				),
+			},
+			{
+				ResourceName:            resourceName,
+				ImportState:             true,
+				ImportStateIdFunc:       testAccBitbucketDeploymentVariableImportStateIdFunc(resourceName),
+				ImportStateVerify:       true,
+				ImportStateVerifyIgnore: []string{"value"},
 			},
 			{
 				Config: testAccBitbucketDeploymentVariableConfig(owner, rName, "test", false),
@@ -148,4 +161,14 @@ resource "bitbucket_deployment_variable" "test" {
   secured    = %[4]t
 }
 `, owner, rName, val, secure)
+}
+
+func testAccBitbucketDeploymentVariableImportStateIdFunc(resourceName string) resource.ImportStateIdFunc {
+	return func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return "", fmt.Errorf("Not found: %s", resourceName)
+		}
+		return fmt.Sprintf("%s/%s", rs.Primary.Attributes["deployment"], rs.Primary.ID), nil
+	}
 }
