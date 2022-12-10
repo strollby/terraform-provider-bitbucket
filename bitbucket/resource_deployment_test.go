@@ -32,6 +32,11 @@ func TestAccBitbucketDeployment_basic(t *testing.T) {
 					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "id"),
 				),
 			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
 		},
 	})
 }

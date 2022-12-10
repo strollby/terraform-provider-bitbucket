@@ -7,7 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/url"
+	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
@@ -30,6 +30,9 @@ func resourceDeployment() *schema.Resource {
 		Update: resourceDeploymentUpdate,
 		Read:   resourceDeploymentRead,
 		Delete: resourceDeploymentDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 
 		Schema: map[string]*schema.Schema{
 			"uuid": {
@@ -104,35 +107,44 @@ func resourceDeploymentCreate(d *schema.ResourceData, m interface{}) error {
 
 func resourceDeploymentRead(d *schema.ResourceData, m interface{}) error {
 
-	client := m.(Clients).httpClient
-	req, _ := client.Get(fmt.Sprintf("2.0/repositories/%s/environments/%s",
-		d.Get("repository").(string),
-		d.Get("uuid").(string),
-	))
-
-	log.Printf("ID: %s", url.PathEscape(d.Id()))
-
-	if req.StatusCode == 200 {
-		var Deployment Deployment
-		body, readerr := io.ReadAll(req.Body)
-		if readerr != nil {
-			return readerr
-		}
-
-		decodeerr := json.Unmarshal(body, &Deployment)
-		if decodeerr != nil {
-			return decodeerr
-		}
-
-		d.Set("uuid", Deployment.UUID)
-		d.Set("name", Deployment.Name)
-		d.Set("stage", Deployment.Stage.Name)
+	repoId, deployId, err := deploymentId(d.Id())
+	if err != nil {
+		return err
 	}
 
-	if req.StatusCode == http.StatusNotFound {
+	client := m.(Clients).httpClient
+	res, err := client.Get(fmt.Sprintf("2.0/repositories/%s/environments/%s",
+		repoId,
+		deployId,
+	))
+
+	if res != nil && res.StatusCode == http.StatusNotFound {
+		log.Printf("[WARN] Deployment (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return nil
 	}
+
+	if err != nil {
+		return err
+	}
+
+	var deploy Deployment
+	body, readerr := io.ReadAll(res.Body)
+	if readerr != nil {
+		return readerr
+	}
+
+	log.Printf("[DEBUG] deployment response: %s", string(body))
+
+	decodeerr := json.Unmarshal(body, &deploy)
+	if decodeerr != nil {
+		return decodeerr
+	}
+
+	d.Set("uuid", deploy.UUID)
+	d.Set("name", deploy.Name)
+	d.Set("stage", deploy.Stage.Name)
+	d.Set("repository", repoId)
 
 	return nil
 }
@@ -168,4 +180,14 @@ func resourceDeploymentDelete(d *schema.ResourceData, m interface{}) error {
 		d.Get("uuid").(string),
 	))
 	return err
+}
+
+func deploymentId(id string) (string, string, error) {
+	parts := strings.Split(id, ":")
+
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("unexpected format of ID (%q), expected REPO-ID/DEPLOYMENT-UUID", id)
+	}
+
+	return parts[0], parts[1], nil
 }
