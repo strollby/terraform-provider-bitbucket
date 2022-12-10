@@ -66,6 +66,12 @@ func resourcePipelineSchedule() *schema.Resource {
 							MaxItems: 1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
+									"type": {
+										Type:     schema.TypeString,
+										Optional: true,
+										ForceNew: true,
+										Default:  "branches",
+									},
 									"pattern": {
 										Type:     schema.TypeString,
 										Required: true,
@@ -213,7 +219,7 @@ func expandPipelineRefTargetSelector(conf []interface{}) *bitbucket.PipelineSele
 
 	selector := &bitbucket.PipelineSelector{
 		Pattern: tfMap["pattern"].(string),
-		Type_:   "branches",
+		Type_:   tfMap["type"].(string),
 	}
 
 	return selector
@@ -240,6 +246,7 @@ func flattenPipelineSelector(rp *bitbucket.PipelineSelector) []interface{} {
 
 	m := map[string]interface{}{
 		"pattern": rp.Pattern,
+		"type":    rp.Type_,
 	}
 
 	return []interface{}{m}
