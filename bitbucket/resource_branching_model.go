@@ -21,11 +21,11 @@ type BranchingModel struct {
 }
 
 type BranchModel struct {
-	IsValid            bool   `json:"is_valid,omitempty"`
-	Name               string `json:"name,omitempty"`
-	UseMainbranch      bool   `json:"use_mainbranch,omitempty"`
-	BranchDoesNotExist bool   `json:"branch_does_not_exist,omitempty"`
-	Enabled            bool   `json:"enabled,omitempty"`
+	IsValid            bool    `json:"is_valid,omitempty"`
+	Name               *string `json:"name"`
+	UseMainbranch      bool    `json:"use_mainbranch,omitempty"`
+	BranchDoesNotExist bool    `json:"branch_does_not_exist,omitempty"`
+	Enabled            bool    `json:"enabled,omitempty"`
 }
 
 type BranchType struct {
@@ -266,7 +266,11 @@ func expandBranchModel(l []interface{}) *BranchModel {
 	rp := &BranchModel{}
 
 	if v, ok := tfMap["name"].(string); ok {
-		rp.Name = v
+		if v == "" {
+			rp.Name = nil
+		} else {
+			rp.Name = &v
+		}
 	}
 
 	if v, ok := tfMap["enabled"].(bool); ok {
