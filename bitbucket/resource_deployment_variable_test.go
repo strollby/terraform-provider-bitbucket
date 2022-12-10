@@ -51,6 +51,23 @@ func TestAccBitbucketDeploymentVariable_basic(t *testing.T) {
 	})
 }
 
+func TestAccBitbucketDeploymentVariable_manyVars(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-test")
+	owner := os.Getenv("BITBUCKET_TEAM")
+	// resourceName := "bitbucket_deployment_variable.test[0]"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckBitbucketDeploymentVariableDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBitbucketDeploymentVariableManyConfig(owner, rName, "test", false),
+			},
+		},
+	})
+}
+
 func TestAccBitbucketDeploymentVariable_secure(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-test")
 	owner := os.Getenv("BITBUCKET_TEAM")
@@ -156,6 +173,30 @@ resource "bitbucket_deployment" "test" {
 
 resource "bitbucket_deployment_variable" "test" {
   key        = "test"
+  value      = %[3]q
+  deployment = bitbucket_deployment.test.id
+  secured    = %[4]t
+}
+`, owner, rName, val, secure)
+}
+
+func testAccBitbucketDeploymentVariableManyConfig(owner, rName, val string, secure bool) string {
+	return fmt.Sprintf(`
+resource "bitbucket_repository" "test" {
+  owner = %[1]q
+  name  = %[2]q
+}
+
+resource "bitbucket_deployment" "test" {
+  name       = %[2]q
+  stage      = "Test"
+  repository = bitbucket_repository.test.id
+}
+
+resource "bitbucket_deployment_variable" "test" {
+  count = 50
+
+  key        = "test${count.index}"
   value      = %[3]q
   deployment = bitbucket_deployment.test.id
   secured    = %[4]t

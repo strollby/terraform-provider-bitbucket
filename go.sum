@@ -1,6 +1,6 @@
 cloud.google.com/go v0.34.0/go.mod h1:aQUYkXzVsufM+DwF1aE+0xfcU+56JwCaLick0ClmMTw=
-github.com/DrFaust92/bitbucket-go-client v0.3.0 h1:hVHr4zc5B+tH2bW/ARtDtYRW/HT88srOLWH0X0C4hxM=
-github.com/DrFaust92/bitbucket-go-client v0.3.0/go.mod h1:y9g+ROPqDQn9eEyXIUCcXunYQmO7rxcNU17ZdPtHk2A=
+github.com/DrFaust92/bitbucket-go-client v0.4.0 h1:XKPVp24XPTRj9Dl1Evrt2hakncF2NpHjgg6FLk4dWP8=
+github.com/DrFaust92/bitbucket-go-client v0.4.0/go.mod h1:Q2LQIw5YbfbpTOCs0Gz4kU15bjVRsgUZ9w2+UbB3Yxc=
 github.com/Microsoft/go-winio v0.4.14/go.mod h1:qXqCSQ3Xa7+6tgxaGTIe4Kpcdsi+P8jBhyzoq1bpyYA=
 github.com/Microsoft/go-winio v0.4.16 h1:FtSW/jqD+l4ba5iPBj9CODVtgfYAD8w2wS923g/cFDk=
 github.com/Microsoft/go-winio v0.4.16/go.mod h1:XB6nPKklQyQ7GC9LdcBEcBl8PF76WugXOPRXwdLnMv0=
