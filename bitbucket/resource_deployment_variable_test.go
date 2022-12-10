@@ -54,7 +54,7 @@ func TestAccBitbucketDeploymentVariable_basic(t *testing.T) {
 func TestAccBitbucketDeploymentVariable_manyVars(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-test")
 	owner := os.Getenv("BITBUCKET_TEAM")
-	resourceName := "bitbucket_deployment_variable.test[0]"
+	// resourceName := "bitbucket_deployment_variable.test[0]"
 
 	resource.Test(t, resource.TestCase{
 		PreCheck:     func() { testAccPreCheck(t) },
@@ -63,15 +63,6 @@ func TestAccBitbucketDeploymentVariable_manyVars(t *testing.T) {
 		Steps: []resource.TestStep{
 			{
 				Config: testAccBitbucketDeploymentVariableManyConfig(owner, rName, "test", false),
-				Check: resource.ComposeTestCheckFunc(
-					testAccCheckBitbucketDeploymentVariableExists(resourceName),
-				),
-			},
-			{
-				ResourceName:      resourceName,
-				ImportState:       true,
-				ImportStateIdFunc: testAccBitbucketDeploymentVariableImportStateIdFunc(resourceName),
-				ImportStateVerify: true,
 			},
 		},
 	})
