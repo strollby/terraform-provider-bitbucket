@@ -34,4 +34,15 @@ resource "bitbucket_deployment" "test" {
 * `name` - (Required) The name of the deployment environment
 * `stage` - (Required) The stage (Test, Staging, Production)
 * `repository` - (Required) The repository ID to which you want to assign this deployment environment to
-* `uuid` - (Computed) The UUID of the deployment environment
+
+## Attributes Reference
+
+* `uuid` - (Computed) The UUID identifying the deployment.
+
+## Import
+
+Deployments can be imported using their `repository/uuid` ID, e.g.
+
+```sh
+terraform import bitbucket_deployment.example repository/uuid
+```
