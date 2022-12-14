@@ -7,6 +7,8 @@ import (
 	"io"
 	"log"
 	"net/http"
+
+	"golang.org/x/oauth2"
 )
 
 // Error represents a error from the bitbucket api.
@@ -31,15 +33,15 @@ const (
 // Client is the base internal Client to talk to bitbuckets API. This should be a username and password
 // the password should be a app-password.
 type Client struct {
-	Username   *string
-	Password   *string
-	OAuthToken *string
-	HTTPClient *http.Client
+	Username         *string
+	Password         *string
+	OAuthToken       *string
+	OAuthTokenSource oauth2.TokenSource
+	HTTPClient       *http.Client
 }
 
 // Do Will just call the bitbucket api but also add auth to it and some extra headers
 func (c *Client) Do(method, endpoint string, payload *bytes.Buffer, addJsonHeader bool) (*http.Response, error) {
-
 	absoluteendpoint := BitbucketEndpoint + endpoint
 	log.Printf("[DEBUG] Sending request to %s %s", method, absoluteendpoint)
 
@@ -62,8 +64,17 @@ func (c *Client) Do(method, endpoint string, payload *bytes.Buffer, addJsonHeade
 
 	if c.OAuthToken != nil {
 		log.Printf("[DEBUG] Setting Bearer Token")
-		var bearer = "Bearer " + *c.OAuthToken
+		bearer := "Bearer " + *c.OAuthToken
 		req.Header.Add("Authorization", bearer)
+	}
+
+	if c.OAuthTokenSource != nil {
+		token, err := c.OAuthTokenSource.Token()
+		if err != nil {
+			return nil, err
+		}
+
+		token.SetAuthHeader(req)
 	}
 
 	if payload != nil && addJsonHeader {

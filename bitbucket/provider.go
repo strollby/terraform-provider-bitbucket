@@ -8,6 +8,8 @@ import (
 
 	"github.com/DrFaust92/bitbucket-go-client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	oauth2bitbucket "golang.org/x/oauth2/bitbucket"
+	oauth2clientcreds "golang.org/x/oauth2/clientcredentials"
 )
 
 type ProviderConfig struct {
@@ -20,8 +22,12 @@ type Clients struct {
 	httpClient Client
 }
 
-// Provider will create the necessary terraform provider to talk to the Bitbucket APIs you should
-// specify a USERNAME and PASSWORD or a OAUTH Token
+// Provider will create the necessary terraform provider to talk to the
+// Bitbucket APIs you should either specify Username and App Password, OAuth
+// Client Credentials or a valid OAuth Access Token.
+//
+// See the Bitbucket authentication documentation for more:
+// https://developer.atlassian.com/cloud/bitbucket/rest/intro/#authentication
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
@@ -29,21 +35,35 @@ func Provider() *schema.Provider {
 				Optional:      true,
 				Type:          schema.TypeString,
 				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_USERNAME", nil),
-				ConflictsWith: []string{"oauth_token"},
+				ConflictsWith: []string{"oauth_client_id", "oauth_client_secret", "oauth_token"},
 				RequiredWith:  []string{"password"},
 			},
 			"password": {
 				Type:          schema.TypeString,
 				Optional:      true,
 				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_PASSWORD", nil),
-				ConflictsWith: []string{"oauth_token"},
+				ConflictsWith: []string{"oauth_client_id", "oauth_client_secret", "oauth_token"},
 				RequiredWith:  []string{"username"},
+			},
+			"oauth_client_id": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_OAUTH_CLIENT_ID", nil),
+				ConflictsWith: []string{"username", "password", "oauth_token"},
+				RequiredWith:  []string{"oauth_client_secret"},
+			},
+			"oauth_client_secret": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_OAUTH_CLIENT_SECRET", nil),
+				ConflictsWith: []string{"username", "password", "oauth_token"},
+				RequiredWith:  []string{"oauth_client_id"},
 			},
 			"oauth_token": {
 				Type:          schema.TypeString,
 				Optional:      true,
 				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_OAUTH_TOKEN", nil),
-				ConflictsWith: []string{"username", "password"},
+				ConflictsWith: []string{"username", "password", "oauth_client_id", "oauth_client_secret"},
 			},
 		},
 		ConfigureFunc: providerConfigure,
@@ -86,7 +106,6 @@ func Provider() *schema.Provider {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
-
 	authCtx := context.Background()
 
 	client := &Client{
@@ -116,6 +135,24 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		token := v.(string)
 		client.OAuthToken = &token
 		authCtx = context.WithValue(authCtx, bitbucket.ContextAccessToken, token)
+	}
+
+	if clientID, ok := d.GetOk("oauth_client_id"); ok {
+		clientSecret, ok := d.GetOk("oauth_client_secret")
+		if !ok {
+			return nil, fmt.Errorf("found client ID for OAuth via Client Credentials Grant, but client secret was not specified")
+		}
+
+		config := &oauth2clientcreds.Config{
+			ClientID:     clientID.(string),
+			ClientSecret: clientSecret.(string),
+			TokenURL:     oauth2bitbucket.Endpoint.TokenURL,
+		}
+
+		tokenSource := config.TokenSource(authCtx)
+
+		client.OAuthTokenSource = tokenSource
+		authCtx = context.WithValue(authCtx, bitbucket.ContextOAuth2, tokenSource)
 	}
 
 	conf := bitbucket.NewConfiguration()
