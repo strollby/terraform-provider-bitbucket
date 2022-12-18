@@ -43,7 +43,7 @@ func dataReadUser(ctx context.Context, d *schema.ResourceData, m interface{}) di
 
 	user, userRes, err := usersApi.UsersSelectedUserGet(c.AuthContext, selectedUser)
 	if err != nil {
-		return diag.Errorf("error reading User (%s): %w", selectedUser, err)
+		return diag.Errorf("error reading User (%s): %s", selectedUser, err)
 	}
 
 	if userRes.StatusCode == http.StatusNotFound {
