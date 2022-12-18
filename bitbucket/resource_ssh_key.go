@@ -72,7 +72,7 @@ func resourceSshKeysCreate(ctx context.Context, d *schema.ResourceData, m interf
 	user := d.Get("user").(string)
 	sshKeyReq, _, err := sshApi.UsersSelectedUserSshKeysPost(c.AuthContext, user, sshKeyBody)
 	if err != nil {
-		return diag.Errorf("error creating ssh key: %w", err)
+		return diag.Errorf("error creating ssh key: %s", err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", user, sshKeyReq.Uuid)))
@@ -91,7 +91,7 @@ func resourceSshKeysRead(ctx context.Context, d *schema.ResourceData, m interfac
 
 	sshKeyReq, res, err := sshApi.UsersSelectedUserSshKeysKeyIdGet(c.AuthContext, keyId, user)
 	if err != nil {
-		return diag.Errorf("error reading ssh key (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading ssh key (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -130,7 +130,7 @@ func resourceSshKeysUpdate(ctx context.Context, d *schema.ResourceData, m interf
 
 	_, _, err = sshApi.UsersSelectedUserSshKeysKeyIdPut(c.AuthContext, keyId, user, sshKeyBody)
 	if err != nil {
-		return diag.Errorf("error updating ssh key (%s): %w", d.Id(), err)
+		return diag.Errorf("error updating ssh key (%s): %s", d.Id(), err)
 	}
 
 	return resourceSshKeysRead(ctx, d, m)
@@ -150,7 +150,7 @@ func resourceSshKeysDelete(ctx context.Context, d *schema.ResourceData, m interf
 		if res.StatusCode == http.StatusNotFound {
 			return nil
 		}
-		return diag.Errorf("error deleting ssh key (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting ssh key (%s): %s", d.Id(), err)
 	}
 
 	return nil

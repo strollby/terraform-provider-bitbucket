@@ -179,7 +179,7 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
 
 	if err != nil {
-		return diag.Errorf("error updating repository (%s): %w", repoSlug, err)
+		return diag.Errorf("error updating repository (%s): %s", repoSlug, err)
 	}
 
 	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
@@ -188,7 +188,7 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
 
 	if err != nil {
-		return diag.Errorf("error enabling pipeline for repository (%s): %w", repoSlug, err)
+		return diag.Errorf("error enabling pipeline for repository (%s): %s", repoSlug, err)
 	}
 
 	return resourceRepositoryRead(ctx, d, m)
@@ -215,7 +215,7 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPost(c.AuthContext, repoSlug, workspace, repoBody)
 	if err != nil {
-		return diag.Errorf("error creating repository (%s): %w", repoSlug, err)
+		return diag.Errorf("error creating repository (%s): %s", repoSlug, err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), repoSlug)))
@@ -226,7 +226,7 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
 
 	if err != nil {
-		return diag.Errorf("error enabling pipeline for repository (%s): %w", repoSlug, err)
+		return diag.Errorf("error enabling pipeline for repository (%s): %s", repoSlug, err)
 	}
 
 	return resourceRepositoryRead(ctx, d, m)
@@ -258,7 +258,7 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
 	if err != nil {
-		return diag.Errorf("error reading repository (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading repository (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -321,7 +321,7 @@ func resourceRepositoryDelete(ctx context.Context, d *schema.ResourceData, m int
 		if res.StatusCode == http.StatusNotFound {
 			return nil
 		}
-		return diag.Errorf("error deleting repository (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting repository (%s): %s", d.Id(), err)
 	}
 
 	return nil

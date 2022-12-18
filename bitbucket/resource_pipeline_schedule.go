@@ -105,7 +105,7 @@ func resourcePipelineScheduleCreate(ctx context.Context, d *schema.ResourceData,
 	schedule, _, err := pipeApi.CreateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo)
 
 	if err != nil {
-		return diag.Errorf("error creating pipeline schedule: %w", err)
+		return diag.Errorf("error creating pipeline schedule: %s", err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repo, schedule.Uuid)))
@@ -114,7 +114,7 @@ func resourcePipelineScheduleCreate(ctx context.Context, d *schema.ResourceData,
 		_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, schedule.Uuid)
 
 		if err != nil {
-			return diag.Errorf("error setting pipeline schedule to disabled: %w", err)
+			return diag.Errorf("error setting pipeline schedule to disabled: %s", err)
 		}
 	}
 
@@ -135,7 +135,7 @@ func resourcePipelineScheduleUpdate(ctx context.Context, d *schema.ResourceData,
 	_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, uuid)
 
 	if err != nil {
-		return diag.Errorf("error updating pipeline schedule: %w", err)
+		return diag.Errorf("error updating pipeline schedule: %s", err)
 	}
 
 	return resourcePipelineScheduleRead(ctx, d, m)
@@ -152,7 +152,7 @@ func resourcePipelineScheduleRead(ctx context.Context, d *schema.ResourceData, m
 
 	schedule, res, err := pipeApi.GetRepositoryPipelineSchedule(c.AuthContext, workspace, repo, uuid)
 	if err != nil {
-		return diag.Errorf("error reading Pipeline Schedule (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading Pipeline Schedule (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -187,7 +187,7 @@ func resourcePipelineScheduleDelete(ctx context.Context, d *schema.ResourceData,
 	_, err = pipeApi.DeleteRepositoryPipelineSchedule(c.AuthContext, workspace, repo, uuid)
 
 	if err != nil {
-		return diag.Errorf("error deleting Pipeline Schedule (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting Pipeline Schedule (%s): %s", d.Id(), err)
 	}
 
 	return diag.FromErr(err)

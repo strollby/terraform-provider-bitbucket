@@ -84,7 +84,7 @@ func resourcePipelineSshKnownHostsCreate(ctx context.Context, d *schema.Resource
 	host, _, err := pipeApi.CreateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo)
 
 	if err != nil {
-		return diag.Errorf("error creating pipeline ssh known host: %w", err)
+		return diag.Errorf("error creating pipeline ssh known host: %s", err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repo, host.Uuid)))
@@ -106,7 +106,7 @@ func resourcePipelineSshKnownHostsUpdate(ctx context.Context, d *schema.Resource
 	_, _, err = pipeApi.UpdateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo, uuid)
 
 	if err != nil {
-		return diag.Errorf("error updating pipeline ssh known host: %w", err)
+		return diag.Errorf("error updating pipeline ssh known host: %s", err)
 	}
 
 	return resourcePipelineSshKnownHostsRead(ctx, d, m)
@@ -123,7 +123,7 @@ func resourcePipelineSshKnownHostsRead(ctx context.Context, d *schema.ResourceDa
 
 	host, res, err := pipeApi.GetRepositoryPipelineKnownHost(c.AuthContext, workspace, repo, uuid)
 	if err != nil {
-		return diag.Errorf("error reading Pipeline Ssh known host (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading Pipeline Ssh known host (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -156,7 +156,7 @@ func resourcePipelineSshKnownHostsDelete(ctx context.Context, d *schema.Resource
 	_, err = pipeApi.DeleteRepositoryPipelineKnownHost(c.AuthContext, workspace, repo, uuid)
 
 	if err != nil {
-		return diag.Errorf("error deleting Pipeline Ssh known host (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting Pipeline Ssh known host (%s): %s", d.Id(), err)
 	}
 
 	return diag.FromErr(err)

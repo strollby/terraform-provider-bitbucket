@@ -86,7 +86,7 @@ func resourceDeploymentVariableCreate(ctx context.Context, d *schema.ResourceDat
 	rvRes, _, err := pipeApi.CreateDeploymentVariable(c.AuthContext, *rvcr, workspace, repoSlug, deployment)
 
 	if err != nil {
-		return diag.Errorf("error creating Deployment Variable (%s): %w", d.Get("deployment").(string), err)
+		return diag.Errorf("error creating Deployment Variable (%s): %s", d.Get("deployment").(string), err)
 	}
 
 	d.Set("uuid", rvRes.Uuid)
@@ -108,7 +108,7 @@ func resourceDeploymentVariableRead(ctx context.Context, d *schema.ResourceData,
 
 	rvRes, res, err := pipeApi.GetDeploymentVariables(c.AuthContext, workspace, repoSlug, deployment)
 	if err != nil {
-		return diag.Errorf("error reading Deployment Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading Deployment Variable (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -165,7 +165,7 @@ func resourceDeploymentVariableUpdate(ctx context.Context, d *schema.ResourceDat
 	_, _, err = pipeApi.UpdateDeploymentVariable(c.AuthContext, *rvcr, workspace, repoSlug, deployment, d.Get("uuid").(string))
 
 	if err != nil {
-		return diag.Errorf("error updating Deployment Variable (%s): %w", d.Get("deployment").(string), err)
+		return diag.Errorf("error updating Deployment Variable (%s): %s", d.Get("deployment").(string), err)
 	}
 
 	return resourceDeploymentVariableRead(ctx, d, m)
@@ -183,7 +183,7 @@ func resourceDeploymentVariableDelete(ctx context.Context, d *schema.ResourceDat
 
 	_, err = pipeApi.DeleteDeploymentVariable(c.AuthContext, workspace, repoSlug, deployment, d.Get("uuid").(string))
 	if err != nil {
-		return diag.Errorf("error deleting Deployment Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting Deployment Variable (%s): %s", d.Id(), err)
 	}
 
 	return nil

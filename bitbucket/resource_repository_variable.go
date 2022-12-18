@@ -69,7 +69,7 @@ func resourceRepositoryVariableCreate(ctx context.Context, d *schema.ResourceDat
 	rvRes, _, err := pipeApi.CreateRepositoryPipelineVariable(c.AuthContext, rvcr, workspace, repoSlug)
 
 	if err != nil {
-		return diag.Errorf("error creating Repository Variable (%s): %w", repo, err)
+		return diag.Errorf("error creating Repository Variable (%s): %s", repo, err)
 	}
 
 	d.Set("uuid", rvRes.Uuid)
@@ -90,7 +90,7 @@ func resourceRepositoryVariableRead(ctx context.Context, d *schema.ResourceData,
 
 	rvRes, res, err := pipeApi.GetRepositoryPipelineVariable(c.AuthContext, workspace, repoSlug, d.Get("uuid").(string))
 	if err != nil {
-		return diag.Errorf("error reading Repository Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading Repository Variable (%s): %s", d.Id(), err)
 	}
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Repository Variable (%s) not found, removing from state", d.Id())
@@ -125,7 +125,7 @@ func resourceRepositoryVariableUpdate(ctx context.Context, d *schema.ResourceDat
 
 	_, _, err = pipeApi.UpdateRepositoryPipelineVariable(c.AuthContext, rvcr, workspace, repoSlug, d.Get("uuid").(string))
 	if err != nil {
-		return diag.Errorf("error updating Repository Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error updating Repository Variable (%s): %s", d.Id(), err)
 	}
 
 	return resourceRepositoryVariableRead(ctx, d, m)
@@ -143,7 +143,7 @@ func resourceRepositoryVariableDelete(ctx context.Context, d *schema.ResourceDat
 
 	_, err = pipeApi.DeleteRepositoryPipelineVariable(c.AuthContext, workspace, repoSlug, d.Get("uuid").(string))
 	if err != nil {
-		return diag.Errorf("error deleting Repository Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting Repository Variable (%s): %s", d.Id(), err)
 	}
 
 	return nil
