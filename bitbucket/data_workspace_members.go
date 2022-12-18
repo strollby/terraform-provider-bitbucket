@@ -1,16 +1,18 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func dataWorkspaceMembers() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadWorkspaceMembers,
+		ReadWithoutTimeout: dataReadWorkspaceMembers,
 
 		Schema: map[string]*schema.Schema{
 			"workspace": {
@@ -26,7 +28,7 @@ func dataWorkspaceMembers() *schema.Resource {
 	}
 }
 
-func dataReadWorkspaceMembers(d *schema.ResourceData, m interface{}) error {
+func dataReadWorkspaceMembers(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace := d.Get("workspace").(string)
@@ -34,7 +36,7 @@ func dataReadWorkspaceMembers(d *schema.ResourceData, m interface{}) error {
 
 	_, err := client.Get(resourceURL)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	var paginatedMemberships bitbucket.PaginatedWorkspaceMemberships
@@ -43,13 +45,13 @@ func dataReadWorkspaceMembers(d *schema.ResourceData, m interface{}) error {
 	for {
 		membersRes, err := client.Get(resourceURL)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		decoder := json.NewDecoder(membersRes.Body)
 		err = decoder.Decode(&paginatedMemberships)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		for _, member := range paginatedMemberships.Values {

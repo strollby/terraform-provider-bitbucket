@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestAccUser_uuid(t *testing.T) {
+func TestAccDataSourceUser_uuid(t *testing.T) {
 	dataSourceName := "data.bitbucket_user.test"
 	currUserDataSource := "data.bitbucket_current_user.test"
 

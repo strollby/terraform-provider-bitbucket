@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestAccWorkspace_basic(t *testing.T) {
+func TestAccDataSourceWorkspace_basic(t *testing.T) {
 	dataSourceName := "data.bitbucket_workspace.test"
 	workspace := os.Getenv("BITBUCKET_TEAM")
 	resource.Test(t, resource.TestCase{
