@@ -9,7 +9,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestAccDataGroupMembers_basic(t *testing.T) {
+func TestAccDataSourceDataGroupMembers_basic(t *testing.T) {
 	dataSourceName := "data.bitbucket_group_members.test"
 	groupResourceName := "bitbucket_group.test"
 

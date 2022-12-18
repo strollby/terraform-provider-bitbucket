@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestAccIPRanges_basic(t *testing.T) {
+func TestAccDataSourceIPRanges_basic(t *testing.T) {
 	dataSourceName := "data.bitbucket_ip_ranges.test"
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },

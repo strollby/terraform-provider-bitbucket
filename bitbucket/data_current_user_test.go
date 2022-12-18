@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestAccCurrentUser_basic(t *testing.T) {
+func TestAccDataSourceCurrentUser_basic(t *testing.T) {
 	dataSourceName := "data.bitbucket_current_user.test"
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },
