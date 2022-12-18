@@ -1,22 +1,24 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourcePipelineSshKnownHost() *schema.Resource {
 	return &schema.Resource{
-		Create: resourcePipelineSshKnownHostsCreate,
-		Read:   resourcePipelineSshKnownHostsRead,
-		Update: resourcePipelineSshKnownHostsUpdate,
-		Delete: resourcePipelineSshKnownHostsDelete,
+		CreateWithoutTimeout: resourcePipelineSshKnownHostsCreate,
+		ReadWithoutTimeout:   resourcePipelineSshKnownHostsRead,
+		UpdateWithoutTimeout: resourcePipelineSshKnownHostsUpdate,
+		DeleteWithoutTimeout: resourcePipelineSshKnownHostsDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -70,7 +72,7 @@ func resourcePipelineSshKnownHost() *schema.Resource {
 	}
 }
 
-func resourcePipelineSshKnownHostsCreate(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineSshKnownHostsCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
@@ -82,21 +84,21 @@ func resourcePipelineSshKnownHostsCreate(d *schema.ResourceData, m interface{}) 
 	host, _, err := pipeApi.CreateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo)
 
 	if err != nil {
-		return fmt.Errorf("error creating pipeline ssh known host: %w", err)
+		return diag.Errorf("error creating pipeline ssh known host: %s", err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repo, host.Uuid)))
 
-	return resourcePipelineSshKnownHostsRead(d, m)
+	return resourcePipelineSshKnownHostsRead(ctx, d, m)
 }
 
-func resourcePipelineSshKnownHostsUpdate(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineSshKnownHostsUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	workspace, repo, uuid, err := pipeSshKnownHostId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	pipeSshKnownHost := expandPipelineSshKnownHost(d)
@@ -104,24 +106,24 @@ func resourcePipelineSshKnownHostsUpdate(d *schema.ResourceData, m interface{}) 
 	_, _, err = pipeApi.UpdateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo, uuid)
 
 	if err != nil {
-		return fmt.Errorf("error updating pipeline ssh known host: %w", err)
+		return diag.Errorf("error updating pipeline ssh known host: %s", err)
 	}
 
-	return resourcePipelineSshKnownHostsRead(d, m)
+	return resourcePipelineSshKnownHostsRead(ctx, d, m)
 }
 
-func resourcePipelineSshKnownHostsRead(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineSshKnownHostsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	workspace, repo, uuid, err := pipeSshKnownHostId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	host, res, err := pipeApi.GetRepositoryPipelineKnownHost(c.AuthContext, workspace, repo, uuid)
 	if err != nil {
-		return fmt.Errorf("error reading Pipeline Ssh known host (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading Pipeline Ssh known host (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -131,7 +133,7 @@ func resourcePipelineSshKnownHostsRead(d *schema.ResourceData, m interface{}) er
 	}
 
 	if res.Body == nil {
-		return fmt.Errorf("error getting Pipeline Ssh known host (%s): empty response", d.Id())
+		return diag.Errorf("error getting Pipeline Ssh known host (%s): empty response", d.Id())
 	}
 
 	d.Set("repository", repo)
@@ -143,21 +145,21 @@ func resourcePipelineSshKnownHostsRead(d *schema.ResourceData, m interface{}) er
 	return nil
 }
 
-func resourcePipelineSshKnownHostsDelete(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineSshKnownHostsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	workspace, repo, uuid, err := pipeSshKnownHostId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	_, err = pipeApi.DeleteRepositoryPipelineKnownHost(c.AuthContext, workspace, repo, uuid)
 
 	if err != nil {
-		return fmt.Errorf("error deleting Pipeline Ssh known host (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting Pipeline Ssh known host (%s): %s", d.Id(), err)
 	}
 
-	return err
+	return diag.FromErr(err)
 }
 
 func expandPipelineSshKnownHost(d *schema.ResourceData) *bitbucket.PipelineKnownHost {

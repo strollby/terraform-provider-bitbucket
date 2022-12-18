@@ -2,6 +2,7 @@ package bitbucket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -26,10 +28,10 @@ type Hook struct {
 
 func resourceHook() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceHookCreate,
-		Read:   resourceHookRead,
-		Update: resourceHookUpdate,
-		Delete: resourceHookDelete,
+		CreateWithoutTimeout: resourceHookCreate,
+		ReadWithoutTimeout:   resourceHookRead,
+		UpdateWithoutTimeout: resourceHookUpdate,
+		DeleteWithoutTimeout: resourceHookDelete,
 		Importer: &schema.ResourceImporter{
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				idParts := strings.Split(d.Id(), "/")
@@ -133,13 +135,13 @@ func createHook(d *schema.ResourceData) *Hook {
 	return hook
 }
 
-func resourceHookCreate(d *schema.ResourceData, m interface{}) error {
+func resourceHookCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	hook := createHook(d)
 
 	payload, err := json.Marshal(hook)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	hookReq, err := client.Post(fmt.Sprintf("2.0/repositories/%s/%s/hooks",
@@ -148,24 +150,24 @@ func resourceHookCreate(d *schema.ResourceData, m interface{}) error {
 	), bytes.NewBuffer(payload))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	body, readerr := io.ReadAll(hookReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	decodeerr := json.Unmarshal(body, &hook)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	d.SetId(hook.UUID)
 
-	return resourceHookRead(d, m)
+	return resourceHookRead(ctx, d, m)
 }
-func resourceHookRead(d *schema.ResourceData, m interface{}) error {
+func resourceHookRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	hookReq, err := client.Get(fmt.Sprintf("2.0/repositories/%s/%s/hooks/%s",
@@ -181,7 +183,7 @@ func resourceHookRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	log.Printf("ID: %s", url.PathEscape(d.Id()))
@@ -191,12 +193,12 @@ func resourceHookRead(d *schema.ResourceData, m interface{}) error {
 
 		body, readerr := io.ReadAll(hookReq.Body)
 		if readerr != nil {
-			return readerr
+			return diag.FromErr(readerr)
 		}
 
 		decodeerr := json.Unmarshal(body, &hook)
 		if decodeerr != nil {
-			return decodeerr
+			return diag.FromErr(decodeerr)
 		}
 
 		d.Set("uuid", hook.UUID)
@@ -210,12 +212,12 @@ func resourceHookRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceHookUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceHookUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	hook := createHook(d)
 	payload, err := json.Marshal(hook)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/hooks/%s",
@@ -225,13 +227,13 @@ func resourceHookUpdate(d *schema.ResourceData, m interface{}) error {
 	), bytes.NewBuffer(payload))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	return resourceHookRead(d, m)
+	return resourceHookRead(ctx, d, m)
 }
 
-func resourceHookDelete(d *schema.ResourceData, m interface{}) error {
+func resourceHookDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	_, err := client.Delete(fmt.Sprintf("2.0/repositories/%s/%s/hooks/%s",
 		d.Get("owner").(string),
@@ -239,6 +241,6 @@ func resourceHookDelete(d *schema.ResourceData, m interface{}) error {
 		url.PathEscape(d.Id()),
 	))
 
-	return err
+	return diag.FromErr(err)
 
 }

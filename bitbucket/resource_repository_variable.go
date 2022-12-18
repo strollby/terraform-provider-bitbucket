@@ -1,21 +1,23 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceRepositoryVariable() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceRepositoryVariableCreate,
-		Update: resourceRepositoryVariableUpdate,
-		Read:   resourceRepositoryVariableRead,
-		Delete: resourceRepositoryVariableDelete,
+		CreateWithoutTimeout: resourceRepositoryVariableCreate,
+		UpdateWithoutTimeout: resourceRepositoryVariableUpdate,
+		ReadWithoutTimeout:   resourceRepositoryVariableRead,
+		DeleteWithoutTimeout: resourceRepositoryVariableDelete,
 
 		Schema: map[string]*schema.Schema{
 			"uuid": {
@@ -53,7 +55,7 @@ func newRepositoryVariableFromResource(d *schema.ResourceData) bitbucket.Pipelin
 	return dk
 }
 
-func resourceRepositoryVariableCreate(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryVariableCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 	rvcr := newRepositoryVariableFromResource(d)
@@ -61,34 +63,34 @@ func resourceRepositoryVariableCreate(d *schema.ResourceData, m interface{}) err
 	repo := d.Get("repository").(string)
 	workspace, repoSlug, err := repoVarId(repo)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	rvRes, _, err := pipeApi.CreateRepositoryPipelineVariable(c.AuthContext, rvcr, workspace, repoSlug)
 
 	if err != nil {
-		return fmt.Errorf("error creating Repository Variable (%s): %w", repo, err)
+		return diag.Errorf("error creating Repository Variable (%s): %s", repo, err)
 	}
 
 	d.Set("uuid", rvRes.Uuid)
 	d.SetId(rvRes.Key)
 
-	return resourceRepositoryVariableRead(d, m)
+	return resourceRepositoryVariableRead(ctx, d, m)
 }
 
-func resourceRepositoryVariableRead(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryVariableRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	repo := d.Get("repository").(string)
 	workspace, repoSlug, err := repoVarId(repo)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	rvRes, res, err := pipeApi.GetRepositoryPipelineVariable(c.AuthContext, workspace, repoSlug, d.Get("uuid").(string))
 	if err != nil {
-		return fmt.Errorf("error reading Repository Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading Repository Variable (%s): %s", d.Id(), err)
 	}
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Repository Variable (%s) not found, removing from state", d.Id())
@@ -109,39 +111,39 @@ func resourceRepositoryVariableRead(d *schema.ResourceData, m interface{}) error
 	return nil
 }
 
-func resourceRepositoryVariableUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryVariableUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	repo := d.Get("repository").(string)
 	workspace, repoSlug, err := repoVarId(repo)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	rvcr := newRepositoryVariableFromResource(d)
 
 	_, _, err = pipeApi.UpdateRepositoryPipelineVariable(c.AuthContext, rvcr, workspace, repoSlug, d.Get("uuid").(string))
 	if err != nil {
-		return fmt.Errorf("error updating Repository Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error updating Repository Variable (%s): %s", d.Id(), err)
 	}
 
-	return resourceRepositoryVariableRead(d, m)
+	return resourceRepositoryVariableRead(ctx, d, m)
 }
 
-func resourceRepositoryVariableDelete(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryVariableDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	repo := d.Get("repository").(string)
 	workspace, repoSlug, err := repoVarId(repo)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = pipeApi.DeleteRepositoryPipelineVariable(c.AuthContext, workspace, repoSlug, d.Get("uuid").(string))
 	if err != nil {
-		return fmt.Errorf("error deleting Repository Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting Repository Variable (%s): %s", d.Id(), err)
 	}
 
 	return nil

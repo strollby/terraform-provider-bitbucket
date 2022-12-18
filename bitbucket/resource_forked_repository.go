@@ -17,10 +17,10 @@ import (
 
 func resourceForkedRepository() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceForkedRepositoryCreate,
-		Update:        resourceRepositoryUpdate,
-		ReadContext:   resourceForkedRepositoryRead,
-		Delete:        resourceRepositoryDelete,
+		CreateContext:        resourceForkedRepositoryCreate,
+		UpdateWithoutTimeout: resourceRepositoryUpdate,
+		ReadContext:          resourceForkedRepositoryRead,
+		DeleteWithoutTimeout: resourceRepositoryDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -237,7 +237,7 @@ func resourceForkedRepositoryCreate(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(retryErr)
 	}
 
-	return diag.FromErr(resourceRepositoryRead(d, m))
+	return resourceRepositoryRead(ctx, d, m)
 }
 
 func resourceForkedRepositoryRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -266,7 +266,7 @@ func resourceForkedRepositoryRead(ctx context.Context, d *schema.ResourceData, m
 
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
 	if err != nil {
-		return diag.FromErr(fmt.Errorf("error reading repository (%s): %w", d.Id(), err))
+		return diag.Errorf("error reading repository (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {

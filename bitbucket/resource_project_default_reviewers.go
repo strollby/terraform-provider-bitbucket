@@ -1,6 +1,7 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,15 +9,16 @@ import (
 	"strings"
 
 	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceProjectDefaultReviewers() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceProjectDefaultReviewersCreate,
-		Read:   resourceProjectDefaultReviewersRead,
-		Update: resourceProjectDefaultReviewersUpdate,
-		Delete: resourceProjectDefaultReviewersDelete,
+		CreateWithoutTimeout: resourceProjectDefaultReviewersCreate,
+		ReadWithoutTimeout:   resourceProjectDefaultReviewersRead,
+		UpdateWithoutTimeout: resourceProjectDefaultReviewersUpdate,
+		DeleteWithoutTimeout: resourceProjectDefaultReviewersDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -41,7 +43,7 @@ func resourceProjectDefaultReviewers() *schema.Resource {
 	}
 }
 
-func resourceProjectDefaultReviewersCreate(d *schema.ResourceData, m interface{}) error {
+func resourceProjectDefaultReviewersCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	projectsApi := c.ApiClient.ProjectsApi
 
@@ -53,31 +55,31 @@ func resourceProjectDefaultReviewersCreate(d *schema.ResourceData, m interface{}
 		_, reviewerResp, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
 
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		if reviewerResp.StatusCode != 200 {
-			return fmt.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
+			return diag.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
 		}
 	}
 
 	d.SetId(fmt.Sprintf("%s/%s", workspace, project))
-	return resourceProjectDefaultReviewersRead(d, m)
+	return resourceProjectDefaultReviewersRead(ctx, d, m)
 }
 
-func resourceProjectDefaultReviewersRead(d *schema.ResourceData, m interface{}) error {
+func resourceProjectDefaultReviewersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace, project, err := defaultProjectReviewersId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	resourceURL := fmt.Sprintf("2.0/workspaces/%s/projects/%s/default-reviewers", workspace, project)
 
 	res, err := client.Get(resourceURL)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -92,13 +94,13 @@ func resourceProjectDefaultReviewersRead(d *schema.ResourceData, m interface{}) 
 	for {
 		reviewersResponse, err := client.Get(resourceURL)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		decoder := json.NewDecoder(reviewersResponse.Body)
 		err = decoder.Decode(&reviewers)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		for _, reviewer := range reviewers.Values {
@@ -121,7 +123,7 @@ func resourceProjectDefaultReviewersRead(d *schema.ResourceData, m interface{}) 
 	return nil
 }
 
-func resourceProjectDefaultReviewersUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceProjectDefaultReviewersUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 
 	projectsApi := c.ApiClient.ProjectsApi
@@ -139,11 +141,11 @@ func resourceProjectDefaultReviewersUpdate(d *schema.ResourceData, m interface{}
 		_, reviewerResp, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
 
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		if reviewerResp.StatusCode != 200 {
-			return fmt.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
+			return diag.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
 		}
 	}
 
@@ -152,21 +154,21 @@ func resourceProjectDefaultReviewersUpdate(d *schema.ResourceData, m interface{}
 		reviewerResp, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
 
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		if reviewerResp.StatusCode != 204 {
-			return fmt.Errorf("[%d] Could not delete %s from default reviewers",
+			return diag.Errorf("[%d] Could not delete %s from default reviewers",
 				reviewerResp.StatusCode,
 				userName,
 			)
 		}
 	}
 
-	return resourceProjectDefaultReviewersRead(d, m)
+	return resourceProjectDefaultReviewersRead(ctx, d, m)
 }
 
-func resourceProjectDefaultReviewersDelete(d *schema.ResourceData, m interface{}) error {
+func resourceProjectDefaultReviewersDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	projectsApi := c.ApiClient.ProjectsApi
 
@@ -177,11 +179,11 @@ func resourceProjectDefaultReviewersDelete(d *schema.ResourceData, m interface{}
 		reviewerResp, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
 
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		if reviewerResp.StatusCode != 204 {
-			return fmt.Errorf("[%d] Could not delete %s from default reviewer",
+			return diag.Errorf("[%d] Could not delete %s from default reviewer",
 				reviewerResp.StatusCode,
 				userName,
 			)

@@ -1,6 +1,7 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -8,15 +9,16 @@ import (
 	"time"
 
 	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceDeploymentVariable() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceDeploymentVariableCreate,
-		Update: resourceDeploymentVariableUpdate,
-		Read:   resourceDeploymentVariableRead,
-		Delete: resourceDeploymentVariableDelete,
+		CreateWithoutTimeout: resourceDeploymentVariableCreate,
+		UpdateWithoutTimeout: resourceDeploymentVariableUpdate,
+		ReadWithoutTimeout:   resourceDeploymentVariableRead,
+		DeleteWithoutTimeout: resourceDeploymentVariableDelete,
 		Importer: &schema.ResourceImporter{
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				idParts := strings.Split(d.Id(), "/")
@@ -70,7 +72,7 @@ func parseDeploymentId(str string) (repository string, deployment string) {
 	return parts[0], parts[1]
 }
 
-func resourceDeploymentVariableCreate(d *schema.ResourceData, m interface{}) error {
+func resourceDeploymentVariableCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 	rvcr := newDeploymentVariableFromResource(d)
@@ -78,35 +80,35 @@ func resourceDeploymentVariableCreate(d *schema.ResourceData, m interface{}) err
 	repository, deployment := parseDeploymentId(d.Get("deployment").(string))
 	workspace, repoSlug, err := deployVarId(repository)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	rvRes, _, err := pipeApi.CreateDeploymentVariable(c.AuthContext, *rvcr, workspace, repoSlug, deployment)
 
 	if err != nil {
-		return fmt.Errorf("error creating Deployment Variable (%s): %w", d.Get("deployment").(string), err)
+		return diag.Errorf("error creating Deployment Variable (%s): %s", d.Get("deployment").(string), err)
 	}
 
 	d.Set("uuid", rvRes.Uuid)
 	d.SetId(rvRes.Uuid)
 
 	time.Sleep(5000 * time.Millisecond) // sleep for a while, to allow BitBucket cache to catch up
-	return resourceDeploymentVariableRead(d, m)
+	return resourceDeploymentVariableRead(ctx, d, m)
 }
 
-func resourceDeploymentVariableRead(d *schema.ResourceData, m interface{}) error {
+func resourceDeploymentVariableRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	repository, deployment := parseDeploymentId(d.Get("deployment").(string))
 	workspace, repoSlug, err := deployVarId(repository)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	rvRes, res, err := pipeApi.GetDeploymentVariables(c.AuthContext, workspace, repoSlug, deployment)
 	if err != nil {
-		return fmt.Errorf("error reading Deployment Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading Deployment Variable (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -149,7 +151,7 @@ func resourceDeploymentVariableRead(d *schema.ResourceData, m interface{}) error
 	return nil
 }
 
-func resourceDeploymentVariableUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceDeploymentVariableUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 	rvcr := newDeploymentVariableFromResource(d)
@@ -157,31 +159,31 @@ func resourceDeploymentVariableUpdate(d *schema.ResourceData, m interface{}) err
 	repository, deployment := parseDeploymentId(d.Get("deployment").(string))
 	workspace, repoSlug, err := deployVarId(repository)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, _, err = pipeApi.UpdateDeploymentVariable(c.AuthContext, *rvcr, workspace, repoSlug, deployment, d.Get("uuid").(string))
 
 	if err != nil {
-		return fmt.Errorf("error updating Deployment Variable (%s): %w", d.Get("deployment").(string), err)
+		return diag.Errorf("error updating Deployment Variable (%s): %s", d.Get("deployment").(string), err)
 	}
 
-	return resourceDeploymentVariableRead(d, m)
+	return resourceDeploymentVariableRead(ctx, d, m)
 }
 
-func resourceDeploymentVariableDelete(d *schema.ResourceData, m interface{}) error {
+func resourceDeploymentVariableDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	repository, deployment := parseDeploymentId(d.Get("deployment").(string))
 	workspace, repoSlug, err := deployVarId(repository)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = pipeApi.DeleteDeploymentVariable(c.AuthContext, workspace, repoSlug, deployment, d.Get("uuid").(string))
 	if err != nil {
-		return fmt.Errorf("error deleting Deployment Variable (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting Deployment Variable (%s): %s", d.Id(), err)
 	}
 
 	return nil

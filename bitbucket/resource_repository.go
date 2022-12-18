@@ -1,6 +1,7 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,16 +10,17 @@ import (
 
 	"github.com/DrFaust92/bitbucket-go-client"
 	"github.com/antihax/optional"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceRepository() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceRepositoryCreate,
-		Update: resourceRepositoryUpdate,
-		Read:   resourceRepositoryRead,
-		Delete: resourceRepositoryDelete,
+		CreateWithoutTimeout: resourceRepositoryCreate,
+		UpdateWithoutTimeout: resourceRepositoryUpdate,
+		ReadWithoutTimeout:   resourceRepositoryRead,
+		DeleteWithoutTimeout: resourceRepositoryDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -156,7 +158,7 @@ func newRepositoryFromResource(d *schema.ResourceData) *bitbucket.Repository {
 	return repo
 }
 
-func resourceRepositoryUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
@@ -177,7 +179,7 @@ func resourceRepositoryUpdate(d *schema.ResourceData, m interface{}) error {
 	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
 
 	if err != nil {
-		return fmt.Errorf("error updating repository (%s): %w", repoSlug, err)
+		return diag.Errorf("error updating repository (%s): %s", repoSlug, err)
 	}
 
 	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
@@ -186,13 +188,13 @@ func resourceRepositoryUpdate(d *schema.ResourceData, m interface{}) error {
 	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
 
 	if err != nil {
-		return fmt.Errorf("error enabling pipeline for repository (%s): %w", repoSlug, err)
+		return diag.Errorf("error enabling pipeline for repository (%s): %s", repoSlug, err)
 	}
 
-	return resourceRepositoryRead(d, m)
+	return resourceRepositoryRead(ctx, d, m)
 }
 
-func resourceRepositoryCreate(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
@@ -213,7 +215,7 @@ func resourceRepositoryCreate(d *schema.ResourceData, m interface{}) error {
 
 	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPost(c.AuthContext, repoSlug, workspace, repoBody)
 	if err != nil {
-		return fmt.Errorf("error creating repository (%s): %w", repoSlug, err)
+		return diag.Errorf("error creating repository (%s): %s", repoSlug, err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), repoSlug)))
@@ -224,13 +226,13 @@ func resourceRepositoryCreate(d *schema.ResourceData, m interface{}) error {
 	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
 
 	if err != nil {
-		return fmt.Errorf("error enabling pipeline for repository (%s): %w", repoSlug, err)
+		return diag.Errorf("error enabling pipeline for repository (%s): %s", repoSlug, err)
 	}
 
-	return resourceRepositoryRead(d, m)
+	return resourceRepositoryRead(ctx, d, m)
 }
 
-func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	id := d.Id()
 	if id != "" {
 		idparts := strings.Split(id, "/")
@@ -238,7 +240,7 @@ func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
 			d.Set("owner", idparts[0])
 			d.Set("slug", idparts[1])
 		} else {
-			return fmt.Errorf("incorrect ID format, should match `owner/slug`")
+			return diag.Errorf("incorrect ID format, should match `owner/slug`")
 		}
 	}
 
@@ -256,7 +258,7 @@ func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
 
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
 	if err != nil {
-		return fmt.Errorf("error reading repository (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading repository (%s): %s", d.Id(), err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -291,7 +293,7 @@ func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
 	pipelinesConfigReq, res, err := pipeApi.GetRepositoryPipelineConfig(c.AuthContext, workspace, repoSlug)
 
 	if err != nil && res.StatusCode != http.StatusNotFound {
-		return err
+		return diag.FromErr(err)
 	}
 
 	if res.StatusCode == 200 {
@@ -303,7 +305,7 @@ func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceRepositoryDelete(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	var repoSlug string
 	repoSlug = d.Get("slug").(string)
@@ -319,7 +321,7 @@ func resourceRepositoryDelete(d *schema.ResourceData, m interface{}) error {
 		if res.StatusCode == http.StatusNotFound {
 			return nil
 		}
-		return fmt.Errorf("error deleting repository (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting repository (%s): %s", d.Id(), err)
 	}
 
 	return nil
