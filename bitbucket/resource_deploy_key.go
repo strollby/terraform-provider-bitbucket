@@ -2,6 +2,7 @@ package bitbucket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,15 +10,16 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func resourceDeployKey() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceDeployKeysCreate,
-		Read:   resourceDeployKeysRead,
-		Update: resourceDeployKeysUpdate,
-		Delete: resourceDeployKeysDelete,
+		CreateWithoutTimeout: resourceDeployKeysCreate,
+		ReadWithoutTimeout:   resourceDeployKeysRead,
+		UpdateWithoutTimeout: resourceDeployKeysUpdate,
+		DeleteWithoutTimeout: resourceDeployKeysDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -54,7 +56,7 @@ func resourceDeployKey() *schema.Resource {
 	}
 }
 
-func resourceDeployKeysCreate(d *schema.ResourceData, m interface{}) error {
+func resourceDeployKeysCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	deployKey := expandsshKey(d)
@@ -62,7 +64,7 @@ func resourceDeployKeysCreate(d *schema.ResourceData, m interface{}) error {
 	bytedata, err := json.Marshal(deployKey)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	repo := d.Get("repository").(string)
@@ -70,12 +72,12 @@ func resourceDeployKeysCreate(d *schema.ResourceData, m interface{}) error {
 	deployKeyReq, err := client.Post(fmt.Sprintf("2.0/repositories/%s/%s/deploy-keys", workspace, repo), bytes.NewBuffer(bytedata))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	body, readerr := io.ReadAll(deployKeyReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Deploy Keys Create Response JSON: %v", string(body))
@@ -84,28 +86,28 @@ func resourceDeployKeysCreate(d *schema.ResourceData, m interface{}) error {
 
 	decodeerr := json.Unmarshal(body, &deployKeyRes)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Deploy Keys Create Response Decoded: %#v", deployKeyRes)
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%d", workspace, repo, deployKeyRes.ID)))
 
-	return resourceDeployKeysRead(d, m)
+	return resourceDeployKeysRead(ctx, d, m)
 }
 
-func resourceDeployKeysRead(d *schema.ResourceData, m interface{}) error {
+func resourceDeployKeysRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	deployApi := c.ApiClient.DeploymentsApi
 
 	workspace, repo, keyId, err := deployKeyId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	deployKey, deployKeyRes, err := deployApi.RepositoriesWorkspaceRepoSlugDeployKeysKeyIdGet(c.AuthContext, keyId, repo, workspace)
 	if err != nil {
-		return fmt.Errorf("error reading Deploy Key (%s): %w", d.Id(), err)
+		return diag.Errorf("error reading Deploy Key (%s): %w", d.Id(), err)
 	}
 
 	if deployKeyRes.StatusCode == http.StatusNotFound {
@@ -126,7 +128,7 @@ func resourceDeployKeysRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceDeployKeysUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceDeployKeysUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	deployKey := expandsshKey(d)
@@ -134,39 +136,39 @@ func resourceDeployKeysUpdate(d *schema.ResourceData, m interface{}) error {
 	bytedata, err := json.Marshal(deployKey)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	workspace, repo, keyId, err := deployKeyId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/deploy-keys/%s",
 		workspace, repo, keyId), bytes.NewBuffer(bytedata))
 
 	if err != nil {
-		return fmt.Errorf("error updating Deploy Key (%s): %w", d.Id(), err)
+		return diag.Errorf("error updating Deploy Key (%s): %w", d.Id(), err)
 	}
 
-	return resourceDeployKeysRead(d, m)
+	return resourceDeployKeysRead(ctx, d, m)
 }
 
-func resourceDeployKeysDelete(d *schema.ResourceData, m interface{}) error {
+func resourceDeployKeysDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	deployApi := c.ApiClient.DeploymentsApi
 
 	workspace, repo, keyId, err := deployKeyId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = deployApi.RepositoriesWorkspaceRepoSlugDeployKeysKeyIdDelete(c.AuthContext, keyId, repo, workspace)
 	if err != nil {
-		return fmt.Errorf("error deleting Deploy Key (%s): %w", d.Id(), err)
+		return diag.Errorf("error deleting Deploy Key (%s): %w", d.Id(), err)
 	}
 
-	return err
+	return diag.FromErr(err)
 }
 
 func deployKeyId(id string) (string, string, string, error) {

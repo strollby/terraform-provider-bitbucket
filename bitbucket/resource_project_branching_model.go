@@ -2,6 +2,7 @@ package bitbucket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,16 +10,17 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceProjectBranchingModel() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceProjectBranchingModelsPut,
-		Read:   resourceProjectBranchingModelsRead,
-		Update: resourceProjectBranchingModelsPut,
-		Delete: resourceProjectBranchingModelsDelete,
+		CreateWithoutTimeout: resourceProjectBranchingModelsPut,
+		ReadWithoutTimeout:   resourceProjectBranchingModelsRead,
+		UpdateWithoutTimeout: resourceProjectBranchingModelsPut,
+		DeleteWithoutTimeout: resourceProjectBranchingModelsDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -116,7 +118,7 @@ func resourceProjectBranchingModel() *schema.Resource {
 	}
 }
 
-func resourceProjectBranchingModelsPut(d *schema.ResourceData, m interface{}) error {
+func resourceProjectBranchingModelsPut(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	branchingModel := expandBranchingModel(d)
 
@@ -124,7 +126,7 @@ func resourceProjectBranchingModelsPut(d *schema.ResourceData, m interface{}) er
 	bytedata, err := json.Marshal(branchingModel)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	branchingModelReq, err := client.Put(fmt.Sprintf("2.0/workspaces/%s/projects/%s/branching-model/settings",
@@ -133,30 +135,30 @@ func resourceProjectBranchingModelsPut(d *schema.ResourceData, m interface{}) er
 	), bytes.NewBuffer(bytedata))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	body, readerr := io.ReadAll(branchingModelReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	decodeerr := json.Unmarshal(body, &branchingModel)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("workspace").(string), d.Get("project").(string))))
 
-	return resourceProjectBranchingModelsRead(d, m)
+	return resourceProjectBranchingModelsRead(ctx, d, m)
 }
 
-func resourceProjectBranchingModelsRead(d *schema.ResourceData, m interface{}) error {
+func resourceProjectBranchingModelsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace, repo, err := projectBranchingModelId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	branchingModelsReq, _ := client.Get(fmt.Sprintf("2.0/workspaces/%s/projects/%s/branching-model", workspace, repo))
 
@@ -167,20 +169,20 @@ func resourceProjectBranchingModelsRead(d *schema.ResourceData, m interface{}) e
 	}
 
 	if branchingModelsReq.Body == nil {
-		return fmt.Errorf("error getting Project Branching Model (%s): empty response", d.Id())
+		return diag.Errorf("error getting Project Branching Model (%s): empty response", d.Id())
 	}
 
 	var branchingModel *BranchingModel
 	body, readerr := io.ReadAll(branchingModelsReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Project Branching Model Response JSON: %v", string(body))
 
 	decodeerr := json.Unmarshal(body, &branchingModel)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Project Branching Model Response Decoded: %#v", branchingModel)
@@ -194,21 +196,21 @@ func resourceProjectBranchingModelsRead(d *schema.ResourceData, m interface{}) e
 	return nil
 }
 
-func resourceProjectBranchingModelsDelete(d *schema.ResourceData, m interface{}) error {
+func resourceProjectBranchingModelsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace, repo, err := projectBranchingModelId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = client.Put(fmt.Sprintf("2.0/workspaces/%s/projects/%s/branching-model/settings", workspace, repo), nil)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	return err
+	return diag.FromErr(err)
 }
 
 func projectBranchingModelId(id string) (string, string, error) {
