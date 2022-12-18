@@ -1,15 +1,16 @@
 package bitbucket
 
 import (
-	"fmt"
+	"context"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func dataWorkspace() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadWorkspace,
+		ReadWithoutTimeout: dataReadWorkspace,
 
 		Schema: map[string]*schema.Schema{
 			"workspace": {
@@ -32,7 +33,7 @@ func dataWorkspace() *schema.Resource {
 	}
 }
 
-func dataReadWorkspace(d *schema.ResourceData, m interface{}) error {
+func dataReadWorkspace(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 
 	workspaceApi := c.ApiClient.WorkspacesApi
@@ -40,15 +41,15 @@ func dataReadWorkspace(d *schema.ResourceData, m interface{}) error {
 	workspace := d.Get("workspace").(string)
 	workspaceReq, res, err := workspaceApi.WorkspacesWorkspaceGet(c.AuthContext, workspace)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("workspace not found")
+		return diag.Errorf("workspace not found")
 	}
 
 	if res.StatusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("internal server error fetching workspace")
+		return diag.Errorf("internal server error fetching workspace")
 	}
 
 	d.SetId(workspaceReq.Uuid)

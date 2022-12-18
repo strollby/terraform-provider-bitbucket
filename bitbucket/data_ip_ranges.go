@@ -1,12 +1,14 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -27,7 +29,7 @@ type IPRange struct {
 
 func dataIPRanges() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadIPRanges,
+		ReadWithoutTimeout: dataReadIPRanges,
 
 		Schema: map[string]*schema.Schema{
 			"ranges": {
@@ -73,20 +75,20 @@ func dataIPRanges() *schema.Resource {
 	}
 }
 
-func dataReadIPRanges(d *schema.ResourceData, m interface{}) error {
+func dataReadIPRanges(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	req, err := http.Get("https://ip-ranges.atlassian.com/")
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	if req.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("IP whitelist not found")
+		return diag.Errorf("IP whitelist not found")
 	}
 
 	body, readerr := io.ReadAll(req.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] IP Ranges Response JSON: %v", string(body))
@@ -95,7 +97,7 @@ func dataReadIPRanges(d *schema.ResourceData, m interface{}) error {
 
 	decodeerr := json.Unmarshal(body, &pageIpRanges)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] IP Ranges Decoded: %#v", pageIpRanges)

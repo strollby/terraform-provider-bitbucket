@@ -1,17 +1,18 @@
 package bitbucket
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func dataUser() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadUser,
+		ReadWithoutTimeout: dataReadUser,
 
 		Schema: map[string]*schema.Schema{
 			"username": {
@@ -31,7 +32,7 @@ func dataUser() *schema.Resource {
 	}
 }
 
-func dataReadUser(d *schema.ResourceData, m interface{}) error {
+func dataReadUser(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	usersApi := c.ApiClient.UsersApi
 	var selectedUser string
@@ -42,15 +43,15 @@ func dataReadUser(d *schema.ResourceData, m interface{}) error {
 
 	user, userRes, err := usersApi.UsersSelectedUserGet(c.AuthContext, selectedUser)
 	if err != nil {
-		return fmt.Errorf("error reading User (%s): %w", selectedUser, err)
+		return diag.Errorf("error reading User (%s): %w", selectedUser, err)
 	}
 
 	if userRes.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("user not found")
+		return diag.Errorf("user not found")
 	}
 
 	if userRes.StatusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("internal server error fetching user")
+		return diag.Errorf("internal server error fetching user")
 	}
 
 	log.Printf("[DEBUG] User: %#v", user)
