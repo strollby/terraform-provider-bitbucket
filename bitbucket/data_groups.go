@@ -1,17 +1,19 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func dataGroups() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadGroups,
+		ReadWithoutTimeout: dataReadGroups,
 
 		Schema: map[string]*schema.Schema{
 			"workspace": {
@@ -50,7 +52,7 @@ func dataGroups() *schema.Resource {
 	}
 }
 
-func dataReadGroups(d *schema.ResourceData, m interface{}) error {
+func dataReadGroups(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace := d.Get("workspace").(string)
@@ -58,21 +60,21 @@ func dataReadGroups(d *schema.ResourceData, m interface{}) error {
 	groupsReq, _ := client.Get(fmt.Sprintf("1.0/groups/%s", workspace))
 
 	if groupsReq.Body == nil {
-		return fmt.Errorf("error reading Groups (%s): empty response", d.Id())
+		return diag.Errorf("error reading Groups (%s): empty response", d.Id())
 	}
 
 	var grps []*UserGroup
 
 	body, readerr := io.ReadAll(groupsReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Groups Response JSON: %v", string(body))
 
 	decodeerr := json.Unmarshal(body, &grps)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Groups Response Decoded: %#v", grps)
