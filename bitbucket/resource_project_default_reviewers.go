@@ -52,14 +52,9 @@ func resourceProjectDefaultReviewersCreate(ctx context.Context, d *schema.Resour
 
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		_, reviewerResp, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
-
-		if err != nil {
+		_, _, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
-		}
-
-		if reviewerResp.StatusCode != 200 {
-			return diag.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
 		}
 	}
 
@@ -138,30 +133,17 @@ func resourceProjectDefaultReviewersUpdate(ctx context.Context, d *schema.Resour
 
 	for _, user := range add.List() {
 		userName := user.(string)
-		_, reviewerResp, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
-
-		if err != nil {
+		_, _, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
-		}
-
-		if reviewerResp.StatusCode != 200 {
-			return diag.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
 		}
 	}
 
 	for _, user := range remove.List() {
 		userName := user.(string)
-		reviewerResp, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
-
-		if err != nil {
+		_, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
-		}
-
-		if reviewerResp.StatusCode != 204 {
-			return diag.Errorf("[%d] Could not delete %s from default reviewers",
-				reviewerResp.StatusCode,
-				userName,
-			)
 		}
 	}
 
@@ -176,17 +158,9 @@ func resourceProjectDefaultReviewersDelete(ctx context.Context, d *schema.Resour
 	workspace := d.Get("workspace").(string)
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		reviewerResp, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
-
-		if err != nil {
+		_, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
-		}
-
-		if reviewerResp.StatusCode != 204 {
-			return diag.Errorf("[%d] Could not delete %s from default reviewer",
-				reviewerResp.StatusCode,
-				userName,
-			)
 		}
 	}
 	return nil

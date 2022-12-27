@@ -113,9 +113,8 @@ func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	_, _, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyPut(c.AuthContext, *project, projectKey, d.Get("owner").(string))
-
-	if err != nil {
-		return diag.Errorf("error updating project (%s): %s", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return resourceProjectRead(ctx, d, m)
@@ -135,8 +134,8 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, m interf
 	owner := d.Get("owner").(string)
 
 	projRes, _, err := projectApi.WorkspacesWorkspaceProjectsPost(c.AuthContext, *project, owner)
-	if err != nil {
-		return diag.Errorf("error creating project (%s): %s", projectKey, err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", owner, projRes.Key)))
@@ -167,13 +166,14 @@ func resourceProjectRead(ctx context.Context, d *schema.ResourceData, m interfac
 
 	projRes, res, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyGet(c.AuthContext, projectKey, d.Get("owner").(string))
 
-	if err != nil {
-		return diag.Errorf("error reading project (%s): %s", d.Id(), err)
-	}
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Project (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return nil
+	}
+
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("key", projRes.Key)
@@ -199,8 +199,8 @@ func resourceProjectDelete(ctx context.Context, d *schema.ResourceData, m interf
 	projectApi := c.ApiClient.ProjectsApi
 
 	_, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyDelete(c.AuthContext, projectKey, d.Get("owner").(string))
-	if err != nil {
-		return diag.Errorf("error deleting project (%s): %s", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return nil

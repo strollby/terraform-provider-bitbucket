@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"io"
 	"log"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -70,17 +69,9 @@ func dataReadCurrentUser(ctx context.Context, d *schema.ResourceData, m interfac
 	httpClient := m.(Clients).httpClient
 	usersApi := c.ApiClient.UsersApi
 
-	curUser, curUserRes, err := usersApi.UserGet(c.AuthContext)
-	if err != nil {
-		return diag.Errorf("error reading current user: %s", err)
-	}
-
-	if curUserRes.StatusCode == http.StatusNotFound {
-		return diag.Errorf("user not found")
-	}
-
-	if curUserRes.StatusCode >= http.StatusInternalServerError {
-		return diag.Errorf("internal server error fetching user")
+	curUser, _, err := usersApi.UserGet(c.AuthContext)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] Current User: %#v", curUser)

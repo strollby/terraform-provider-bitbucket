@@ -177,18 +177,16 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 
 	workspace := d.Get("owner").(string)
 	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
-
-	if err != nil {
-		return diag.Errorf("error updating repository (%s): %s", repoSlug, err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
 	pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: pipelinesEnabled}
 
 	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-
-	if err != nil {
-		return diag.Errorf("error enabling pipeline for repository (%s): %s", repoSlug, err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return resourceRepositoryRead(ctx, d, m)
@@ -214,8 +212,8 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPost(c.AuthContext, repoSlug, workspace, repoBody)
-	if err != nil {
-		return diag.Errorf("error creating repository (%s): %s", repoSlug, err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), repoSlug)))
@@ -224,9 +222,8 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 	pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: pipelinesEnabled}
 
 	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-
-	if err != nil {
-		return diag.Errorf("error enabling pipeline for repository (%s): %s", repoSlug, err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return resourceRepositoryRead(ctx, d, m)
@@ -257,14 +254,15 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 	pipeApi := c.ApiClient.PipelinesApi
 
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
-	if err != nil {
-		return diag.Errorf("error reading repository (%s): %s", d.Id(), err)
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Repository (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return nil
+	}
+
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("scm", repoRes.Scm)
@@ -291,8 +289,7 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 	d.Set("link", flattenLinks(repoRes.Links))
 
 	pipelinesConfigReq, res, err := pipeApi.GetRepositoryPipelineConfig(c.AuthContext, workspace, repoSlug)
-
-	if err != nil && res.StatusCode != http.StatusNotFound {
+	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -316,12 +313,9 @@ func resourceRepositoryDelete(ctx context.Context, d *schema.ResourceData, m int
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 
-	res, err := repoApi.RepositoriesWorkspaceRepoSlugDelete(c.AuthContext, repoSlug, d.Get("owner").(string), nil)
-	if err != nil {
-		if res.StatusCode == http.StatusNotFound {
-			return nil
-		}
-		return diag.Errorf("error deleting repository (%s): %s", d.Id(), err)
+	_, err := repoApi.RepositoriesWorkspaceRepoSlugDelete(c.AuthContext, repoSlug, d.Get("owner").(string), nil)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return nil
