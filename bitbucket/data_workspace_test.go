@@ -21,7 +21,7 @@ func TestAccDataSourceWorkspace_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(dataSourceName, "workspace", workspace),
 					resource.TestCheckResourceAttrSet(dataSourceName, "name"),
 					resource.TestCheckResourceAttrSet(dataSourceName, "slug"),
-					resource.TestCheckResourceAttr(dataSourceName, "is_private", "true"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "is_private"),
 				),
 			},
 		},
