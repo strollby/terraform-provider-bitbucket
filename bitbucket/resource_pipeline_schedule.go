@@ -103,18 +103,16 @@ func resourcePipelineScheduleCreate(ctx context.Context, d *schema.ResourceData,
 	repo := d.Get("repository").(string)
 	workspace := d.Get("workspace").(string)
 	schedule, _, err := pipeApi.CreateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo)
-
-	if err != nil {
-		return diag.Errorf("error creating pipeline schedule: %s", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repo, schedule.Uuid)))
 
 	if !d.Get("enabled").(bool) {
 		_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, schedule.Uuid)
-
-		if err != nil {
-			return diag.Errorf("error setting pipeline schedule to disabled: %s", err)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
 		}
 	}
 
@@ -133,9 +131,8 @@ func resourcePipelineScheduleUpdate(ctx context.Context, d *schema.ResourceData,
 	pipeSchedule := expandPipelineSchedule(d)
 	log.Printf("[DEBUG] Pipeline Schedule Request: %#v", pipeSchedule)
 	_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, uuid)
-
-	if err != nil {
-		return diag.Errorf("error updating pipeline schedule: %s", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return resourcePipelineScheduleRead(ctx, d, m)
@@ -151,9 +148,6 @@ func resourcePipelineScheduleRead(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	schedule, res, err := pipeApi.GetRepositoryPipelineSchedule(c.AuthContext, workspace, repo, uuid)
-	if err != nil {
-		return diag.Errorf("error reading Pipeline Schedule (%s): %s", d.Id(), err)
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Pipeline Schedule (%s) not found, removing from state", d.Id())
@@ -161,8 +155,8 @@ func resourcePipelineScheduleRead(ctx context.Context, d *schema.ResourceData, m
 		return nil
 	}
 
-	if res.Body == nil {
-		return diag.Errorf("error getting Pipeline Schedule (%s): empty response", d.Id())
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("repository", repo)
@@ -185,9 +179,8 @@ func resourcePipelineScheduleDelete(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(err)
 	}
 	_, err = pipeApi.DeleteRepositoryPipelineSchedule(c.AuthContext, workspace, repo, uuid)
-
-	if err != nil {
-		return diag.Errorf("error deleting Pipeline Schedule (%s): %s", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return diag.FromErr(err)

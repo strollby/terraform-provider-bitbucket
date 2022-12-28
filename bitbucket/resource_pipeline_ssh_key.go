@@ -55,9 +55,8 @@ func resourcePipelineSshKeysPut(ctx context.Context, d *schema.ResourceData, m i
 	repo := d.Get("repository").(string)
 	workspace := d.Get("workspace").(string)
 	_, _, err := pipeApi.UpdateRepositoryPipelineKeyPair(c.AuthContext, *pipeSshKey, workspace, repo)
-
-	if err != nil {
-		return diag.Errorf("error creating pipeline ssh key: %s", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", workspace, repo)))
@@ -75,9 +74,6 @@ func resourcePipelineSshKeysRead(ctx context.Context, d *schema.ResourceData, m 
 	}
 
 	key, res, err := pipeApi.GetRepositoryPipelineSshKeyPair(c.AuthContext, workspace, repo)
-	if err != nil {
-		return diag.Errorf("error reading Pipeline Ssh Key (%s): %s", d.Id(), err)
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Pipeline Ssh Key (%s) not found, removing from state", d.Id())
@@ -85,8 +81,8 @@ func resourcePipelineSshKeysRead(ctx context.Context, d *schema.ResourceData, m 
 		return nil
 	}
 
-	if res.Body == nil {
-		return diag.Errorf("error getting Pipeline Ssh Key (%s): empty response", d.Id())
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("repository", repo)
@@ -107,9 +103,8 @@ func resourcePipelineSshKeysDelete(ctx context.Context, d *schema.ResourceData, 
 	}
 
 	_, err = pipeApi.DeleteRepositoryPipelineKeyPair(c.AuthContext, workspace, repo)
-
-	if err != nil {
-		return diag.Errorf("error deleting Pipeline Ssh Key (%s): %s", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return diag.FromErr(err)

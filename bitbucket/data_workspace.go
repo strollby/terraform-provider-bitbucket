@@ -2,7 +2,6 @@ package bitbucket
 
 import (
 	"context"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -39,17 +38,9 @@ func dataReadWorkspace(ctx context.Context, d *schema.ResourceData, m interface{
 	workspaceApi := c.ApiClient.WorkspacesApi
 
 	workspace := d.Get("workspace").(string)
-	workspaceReq, res, err := workspaceApi.WorkspacesWorkspaceGet(c.AuthContext, workspace)
-	if err != nil {
+	workspaceReq, _, err := workspaceApi.WorkspacesWorkspaceGet(c.AuthContext, workspace)
+	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
-	}
-
-	if res.StatusCode == http.StatusNotFound {
-		return diag.Errorf("workspace not found")
-	}
-
-	if res.StatusCode >= http.StatusInternalServerError {
-		return diag.Errorf("internal server error fetching workspace")
 	}
 
 	d.SetId(workspaceReq.Uuid)

@@ -82,9 +82,8 @@ func resourcePipelineSshKnownHostsCreate(ctx context.Context, d *schema.Resource
 	repo := d.Get("repository").(string)
 	workspace := d.Get("workspace").(string)
 	host, _, err := pipeApi.CreateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo)
-
-	if err != nil {
-		return diag.Errorf("error creating pipeline ssh known host: %s", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repo, host.Uuid)))
@@ -104,9 +103,8 @@ func resourcePipelineSshKnownHostsUpdate(ctx context.Context, d *schema.Resource
 	pipeSshKnownHost := expandPipelineSshKnownHost(d)
 	log.Printf("[DEBUG] Pipeline Ssh Key Request: %#v", pipeSshKnownHost)
 	_, _, err = pipeApi.UpdateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo, uuid)
-
-	if err != nil {
-		return diag.Errorf("error updating pipeline ssh known host: %s", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return resourcePipelineSshKnownHostsRead(ctx, d, m)
@@ -122,9 +120,6 @@ func resourcePipelineSshKnownHostsRead(ctx context.Context, d *schema.ResourceDa
 	}
 
 	host, res, err := pipeApi.GetRepositoryPipelineKnownHost(c.AuthContext, workspace, repo, uuid)
-	if err != nil {
-		return diag.Errorf("error reading Pipeline Ssh known host (%s): %s", d.Id(), err)
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Pipeline Ssh known host (%s) not found, removing from state", d.Id())
@@ -132,8 +127,8 @@ func resourcePipelineSshKnownHostsRead(ctx context.Context, d *schema.ResourceDa
 		return nil
 	}
 
-	if res.Body == nil {
-		return diag.Errorf("error getting Pipeline Ssh known host (%s): empty response", d.Id())
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("repository", repo)
@@ -154,9 +149,8 @@ func resourcePipelineSshKnownHostsDelete(ctx context.Context, d *schema.Resource
 		return diag.FromErr(err)
 	}
 	_, err = pipeApi.DeleteRepositoryPipelineKnownHost(c.AuthContext, workspace, repo, uuid)
-
-	if err != nil {
-		return diag.Errorf("error deleting Pipeline Ssh known host (%s): %s", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return diag.FromErr(err)

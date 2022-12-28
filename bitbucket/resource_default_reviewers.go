@@ -65,14 +65,10 @@ func resourceDefaultReviewersCreate(ctx context.Context, d *schema.ResourceData,
 	workspace := d.Get("owner").(string)
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		_, reviewerResp, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
 
-		if err != nil {
+		_, _, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
-		}
-
-		if reviewerResp.StatusCode != 200 {
-			return diag.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
 		}
 	}
 
@@ -150,30 +146,17 @@ func resourceDefaultReviewersUpdate(ctx context.Context, d *schema.ResourceData,
 
 	for _, user := range add.List() {
 		userName := user.(string)
-		_, reviewerResp, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
-
-		if err != nil {
+		_, _, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
-		}
-
-		if reviewerResp.StatusCode != 200 {
-			return diag.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
 		}
 	}
 
 	for _, user := range remove.List() {
 		userName := user.(string)
-		reviewerResp, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
-
-		if err != nil {
+		_, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
-		}
-
-		if reviewerResp.StatusCode != 204 {
-			return diag.Errorf("[%d] Could not delete %s from default reviewers",
-				reviewerResp.StatusCode,
-				userName,
-			)
 		}
 	}
 
@@ -188,17 +171,9 @@ func resourceDefaultReviewersDelete(ctx context.Context, d *schema.ResourceData,
 	workspace := d.Get("owner").(string)
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		reviewerResp, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
-
-		if err != nil {
+		_, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
-		}
-
-		if reviewerResp.StatusCode != 204 {
-			return diag.Errorf("[%d] Could not delete %s from default reviewer",
-				reviewerResp.StatusCode,
-				userName,
-			)
 		}
 	}
 	return nil

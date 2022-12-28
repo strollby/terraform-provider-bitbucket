@@ -3,7 +3,6 @@ package bitbucket
 import (
 	"context"
 	"log"
-	"net/http"
 
 	"github.com/DrFaust92/bitbucket-go-client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
@@ -52,17 +51,9 @@ func dataReadHookTypes(ctx context.Context, d *schema.ResourceData, m interface{
 	webhooksApi := c.ApiClient.WebhooksApi
 
 	subjectType := d.Get("subject_type").(string)
-	hookTypes, res, err := webhooksApi.HookEventsSubjectTypeGet(c.AuthContext, subjectType)
-	if err != nil {
+	hookTypes, _, err := webhooksApi.HookEventsSubjectTypeGet(c.AuthContext, subjectType)
+	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
-	}
-
-	if res.StatusCode == http.StatusNotFound {
-		return diag.Errorf("user not found")
-	}
-
-	if res.StatusCode >= http.StatusInternalServerError {
-		return diag.Errorf("internal server error fetching hook types")
 	}
 
 	d.SetId(subjectType)

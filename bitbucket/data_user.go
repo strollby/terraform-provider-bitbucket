@@ -3,7 +3,6 @@ package bitbucket
 import (
 	"context"
 	"log"
-	"net/http"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
@@ -41,17 +40,9 @@ func dataReadUser(ctx context.Context, d *schema.ResourceData, m interface{}) di
 		selectedUser = v.(string)
 	}
 
-	user, userRes, err := usersApi.UsersSelectedUserGet(c.AuthContext, selectedUser)
-	if err != nil {
-		return diag.Errorf("error reading User (%s): %s", selectedUser, err)
-	}
-
-	if userRes.StatusCode == http.StatusNotFound {
-		return diag.Errorf("user not found")
-	}
-
-	if userRes.StatusCode >= http.StatusInternalServerError {
-		return diag.Errorf("internal server error fetching user")
+	user, _, err := usersApi.UsersSelectedUserGet(c.AuthContext, selectedUser)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] User: %#v", user)
