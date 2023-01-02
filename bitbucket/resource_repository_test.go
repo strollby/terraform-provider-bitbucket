@@ -13,7 +13,7 @@ import (
 
 func TestAccBitbucketRepository_basic(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-test")
-	testUser := os.Getenv("BITBUCKET_TEAM")
+	workspace := os.Getenv("BITBUCKET_TEAM")
 	resourceName := "bitbucket_repository.test"
 
 	resource.Test(t, resource.TestCase{
@@ -22,11 +22,11 @@ func TestAccBitbucketRepository_basic(t *testing.T) {
 		CheckDestroy: testAccCheckBitbucketRepositoryDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBitbucketRepoConfig(testUser, rName),
+				Config: testAccBitbucketRepoConfig(workspace, rName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBitbucketRepositoryExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "name", rName),
-					resource.TestCheckResourceAttr(resourceName, "owner", testUser),
+					resource.TestCheckResourceAttr(resourceName, "owner", workspace),
 					resource.TestCheckResourceAttr(resourceName, "scm", "git"),
 					resource.TestCheckResourceAttr(resourceName, "has_wiki", "false"),
 					resource.TestCheckResourceAttrSet(resourceName, "uuid"),
@@ -40,6 +40,8 @@ func TestAccBitbucketRepository_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "link.0.avatar.#", "1"),
 					resource.TestCheckResourceAttrSet(resourceName, "link.0.avatar.0.href"),
 					resource.TestCheckResourceAttrSet(resourceName, "project_key"),
+					resource.TestCheckResourceAttr(resourceName, "inherit_default_merge_strategy", "true"),
+					resource.TestCheckResourceAttr(resourceName, "inherit_branching_model", "true"),
 				),
 			},
 			{
@@ -53,7 +55,7 @@ func TestAccBitbucketRepository_basic(t *testing.T) {
 
 func TestAccBitbucketRepository_project(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-test")
-	testUser := os.Getenv("BITBUCKET_TEAM")
+	workspace := os.Getenv("BITBUCKET_TEAM")
 	resourceName := "bitbucket_repository.test"
 
 	resource.Test(t, resource.TestCase{
@@ -62,11 +64,11 @@ func TestAccBitbucketRepository_project(t *testing.T) {
 		CheckDestroy: testAccCheckBitbucketRepositoryDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBitbucketRepoProjectConfig(testUser, rName),
+				Config: testAccBitbucketRepoProjectConfig(workspace, rName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBitbucketRepositoryExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "name", rName),
-					resource.TestCheckResourceAttr(resourceName, "owner", testUser),
+					resource.TestCheckResourceAttr(resourceName, "owner", workspace),
 					resource.TestCheckResourceAttrPair(resourceName, "project_key", "bitbucket_project.test", "key"),
 				),
 			},
@@ -81,7 +83,7 @@ func TestAccBitbucketRepository_project(t *testing.T) {
 
 func TestAccBitbucketRepository_avatar(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-test")
-	testUser := os.Getenv("BITBUCKET_TEAM")
+	workspace := os.Getenv("BITBUCKET_TEAM")
 	resourceName := "bitbucket_repository.test"
 
 	resource.Test(t, resource.TestCase{
@@ -90,7 +92,7 @@ func TestAccBitbucketRepository_avatar(t *testing.T) {
 		CheckDestroy: testAccCheckBitbucketRepositoryDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBitbucketRepoAvatarConfig(testUser, rName),
+				Config: testAccBitbucketRepoAvatarConfig(workspace, rName),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBitbucketRepositoryExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "link.#", "1"),
@@ -110,7 +112,7 @@ func TestAccBitbucketRepository_avatar(t *testing.T) {
 func TestAccBitbucketRepository_slug(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-test")
 	rSlug := acctest.RandomWithPrefix("tf-test")
-	testUser := os.Getenv("BITBUCKET_TEAM")
+	workspace := os.Getenv("BITBUCKET_TEAM")
 	resourceName := "bitbucket_repository.test"
 
 	resource.Test(t, resource.TestCase{
@@ -119,7 +121,7 @@ func TestAccBitbucketRepository_slug(t *testing.T) {
 		CheckDestroy: testAccCheckBitbucketRepositoryDestroy,
 		Steps: []resource.TestStep{
 			{
-				Config: testAccBitbucketRepoSlugConfig(testUser, rName, rSlug),
+				Config: testAccBitbucketRepoSlugConfig(workspace, rName, rSlug),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBitbucketRepositoryExists(resourceName),
 					resource.TestCheckResourceAttr(resourceName, "name", rName),
@@ -135,16 +137,72 @@ func TestAccBitbucketRepository_slug(t *testing.T) {
 	})
 }
 
-func testAccBitbucketRepoConfig(testUser, rName string) string {
+func TestAccBitbucketRepository_inherit(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-test")
+	workspace := os.Getenv("BITBUCKET_TEAM")
+	resourceName := "bitbucket_repository.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckBitbucketRepositoryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBitbucketRepoInheritConfig(workspace, rName, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketRepositoryExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "inherit_default_merge_strategy", "true"),
+					resource.TestCheckResourceAttr(resourceName, "inherit_branching_model", "true"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccBitbucketRepoInheritConfig(workspace, rName, false),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketRepositoryExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "inherit_default_merge_strategy", "false"),
+					resource.TestCheckResourceAttr(resourceName, "inherit_branching_model", "true"),
+				),
+			},
+			{
+				Config: testAccBitbucketRepoInheritConfig(workspace, rName, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketRepositoryExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "inherit_default_merge_strategy", "true"),
+					resource.TestCheckResourceAttr(resourceName, "inherit_branching_model", "true"),
+				),
+			},
+		},
+	})
+}
+
+func testAccBitbucketRepoInheritConfig(workspace, rName string, enable bool) string {
+	return fmt.Sprintf(`
+resource "bitbucket_repository" "test" {
+  owner                          = %[1]q
+  name                           = %[2]q
+  inherit_default_merge_strategy = %[3]t
+}
+`, workspace, rName, enable)
+}
+
+func testAccBitbucketRepoConfig(workspace, rName string) string {
 	return fmt.Sprintf(`
 resource "bitbucket_repository" "test" {
   owner = %[1]q
   name  = %[2]q
 }
-`, testUser, rName)
+`, workspace, rName)
 }
 
-func testAccBitbucketRepoProjectConfig(testUser, rName string) string {
+func testAccBitbucketRepoProjectConfig(workspace, rName string) string {
 	return fmt.Sprintf(`
 resource "bitbucket_project" "test" {
   owner = %[1]q
@@ -157,10 +215,10 @@ resource "bitbucket_repository" "test" {
   name        = %[2]q
   project_key = bitbucket_project.test.key
 }
-`, testUser, rName)
+`, workspace, rName)
 }
 
-func testAccBitbucketRepoAvatarConfig(testUser, rName string) string {
+func testAccBitbucketRepoAvatarConfig(workspace, rName string) string {
 	return fmt.Sprintf(`
 resource "bitbucket_repository" "test" {
   owner = %[1]q
@@ -172,17 +230,17 @@ resource "bitbucket_repository" "test" {
 	}
   }  
 }
-`, testUser, rName)
+`, workspace, rName)
 }
 
-func testAccBitbucketRepoSlugConfig(testUser, rName, rSlug string) string {
+func testAccBitbucketRepoSlugConfig(workspace, rName, rSlug string) string {
 	return fmt.Sprintf(`
 resource "bitbucket_repository" "test" {
   owner = %[1]q
   name  = %[2]q
   slug  = %[3]q
 }
-`, testUser, rName, rSlug)
+`, workspace, rName, rSlug)
 }
 
 func testAccCheckBitbucketRepositoryDestroy(s *terraform.State) error {

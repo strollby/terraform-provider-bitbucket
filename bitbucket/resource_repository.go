@@ -1,8 +1,11 @@
 package bitbucket
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -128,8 +131,23 @@ func resourceRepository() *schema.Resource {
 					},
 				},
 			},
+			"inherit_default_merge_strategy": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+			},
+			"inherit_branching_model": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+			},
 		},
 	}
+}
+
+type RepositoryInheritanceSettings struct {
+	DefaultMergeStrategy *bool `json:"default_merge_strategy,omitempty"`
+	BranchingModel       *bool `json:"branching_model,omitempty"`
 }
 
 func newRepositoryFromResource(d *schema.ResourceData) *bitbucket.Repository {
@@ -162,6 +180,7 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
+	client := m.(Clients).httpClient
 
 	repository := newRepositoryFromResource(d)
 
@@ -189,6 +208,28 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.FromErr(err)
 	}
 
+	if d.HasChanges("inherit_default_merge_strategy", "inherit_branching_model") {
+		setting := createRepositoryInheritanceSettings(d)
+
+		log.Printf("Repository Inheritance Settings update is: %#v", setting)
+
+		payload, err := json.Marshal(setting)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		log.Printf("Repository Inheritance Settings update encoded is: %v", string(payload))
+
+		_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+			workspace,
+			repoSlug,
+		), bytes.NewBuffer(payload))
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
 	return resourceRepositoryRead(ctx, d, m)
 }
 
@@ -196,6 +237,8 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
+	client := m.(Clients).httpClient
+
 	repo := newRepositoryFromResource(d)
 
 	var repoSlug string
@@ -226,6 +269,28 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.FromErr(err)
 	}
 
+	_, branchOk := d.GetOkExists("inherit_branching_model")
+	_, mergeStratOk := d.GetOkExists("inherit_default_merge_strategy")
+
+	if mergeStratOk || branchOk {
+		setting := createRepositoryInheritanceSettings(d)
+
+		payload, err := json.Marshal(setting)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+			workspace,
+			repoSlug,
+		), bytes.NewBuffer(payload))
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+	}
+
 	return resourceRepositoryRead(ctx, d, m)
 }
 
@@ -252,6 +317,7 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
+	client := m.(Clients).httpClient
 
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
 
@@ -298,6 +364,34 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 	} else if res.StatusCode == http.StatusNotFound {
 		d.Set("pipelines_enabled", false)
 	}
+
+	settingReq, err := client.Get(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+		workspace,
+		repoSlug,
+	))
+
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	var setting RepositoryInheritanceSettings
+
+	body, readerr := io.ReadAll(settingReq.Body)
+	if readerr != nil {
+		return diag.FromErr(readerr)
+	}
+
+	log.Printf("Repository Inheritance Settings raw is: %#v", string(body))
+
+	decodeerr := json.Unmarshal(body, &setting)
+	if decodeerr != nil {
+		return diag.FromErr(decodeerr)
+	}
+
+	log.Printf("Repository Inheritance Settings decoded is: %#v", setting)
+
+	d.Set("inherit_default_merge_strategy", setting.DefaultMergeStrategy)
+	d.Set("inherit_branching_model", setting.BranchingModel)
 
 	return nil
 }
@@ -389,4 +483,21 @@ func flattenLink(rp *bitbucket.Link) []interface{} {
 	}
 
 	return []interface{}{m}
+}
+
+func createRepositoryInheritanceSettings(d *schema.ResourceData) *RepositoryInheritanceSettings {
+
+	setting := &RepositoryInheritanceSettings{}
+
+	if v, ok := d.GetOkExists("inherit_branching_model"); ok {
+		model := v.(bool)
+		setting.BranchingModel = &model
+	}
+
+	if v, ok := d.GetOkExists("inherit_default_merge_strategy"); ok {
+		strat := v.(bool)
+		setting.DefaultMergeStrategy = &strat
+	}
+
+	return setting
 }
