@@ -182,30 +182,35 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 	pipeApi := c.ApiClient.PipelinesApi
 	client := m.(Clients).httpClient
 
-	repository := newRepositoryFromResource(d)
-
 	var repoSlug string
 	repoSlug = d.Get("slug").(string)
 	if repoSlug == "" {
 		repoSlug = d.Get("name").(string)
 	}
 	repoSlug = computeSlug(repoSlug)
-	repoBody := &bitbucket.RepositoriesApiRepositoriesWorkspaceRepoSlugPutOpts{
-		Body: optional.NewInterface(repository),
-	}
-
 	workspace := d.Get("owner").(string)
-	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
-	if err := handleClientError(err); err != nil {
-		return diag.FromErr(err)
+
+	if d.HasChangesExcept("pipelines_enabled", "inherit_default_merge_strategy", "inherit_branching_model") {
+		repository := newRepositoryFromResource(d)
+
+		repoBody := &bitbucket.RepositoriesApiRepositoriesWorkspaceRepoSlugPutOpts{
+			Body: optional.NewInterface(repository),
+		}
+		_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
-	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
-	pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: pipelinesEnabled}
+	if d.HasChange("pipelines_enabled") {
+		if v, ok := d.GetOkExists("pipelines_enabled"); ok {
+			pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
-	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-	if err := handleClientError(err); err != nil {
-		return diag.FromErr(err)
+			_, _, err := pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
+			if err := handleClientError(err); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 	}
 
 	if d.HasChanges("inherit_default_merge_strategy", "inherit_branching_model") {
@@ -261,12 +266,13 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), repoSlug)))
 
-	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
-	pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: pipelinesEnabled}
+	if v, ok := d.GetOkExists("pipelines_enabled"); ok {
+		pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
-	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-	if err := handleClientError(err); err != nil {
-		return diag.FromErr(err)
+		_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	_, branchOk := d.GetOkExists("inherit_branching_model")
@@ -295,29 +301,20 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 }
 
 func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	id := d.Id()
-	if id != "" {
-		idparts := strings.Split(id, "/")
-		if len(idparts) == 2 {
-			d.Set("owner", idparts[0])
-			d.Set("slug", idparts[1])
-		} else {
-			return diag.Errorf("incorrect ID format, should match `owner/slug`")
-		}
-	}
-
-	var repoSlug string
-	repoSlug = d.Get("slug").(string)
-	if repoSlug == "" {
-		repoSlug = d.Get("name").(string)
-	}
-	repoSlug = computeSlug(repoSlug)
-
-	workspace := d.Get("owner").(string)
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
 	client := m.(Clients).httpClient
+
+	workspace, repoSlug, err := repositoryId(d.Id())
+	if err != nil {
+		diag.FromErr(err)
+	}
+
+	if repoSlug == "" {
+		repoSlug = d.Get("name").(string)
+	}
+	repoSlug = computeSlug(repoSlug)
 
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
 
@@ -500,4 +497,14 @@ func createRepositoryInheritanceSettings(d *schema.ResourceData) *RepositoryInhe
 	}
 
 	return setting
+}
+
+func repositoryId(id string) (string, string, error) {
+	parts := strings.Split(id, "/")
+
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("unexpected format of ID (%q), expected WORKSPACE:REPO-SLUG", id)
+	}
+
+	return parts[0], parts[1], nil
 }
