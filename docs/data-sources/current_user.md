@@ -6,7 +6,7 @@ description: |-
   Provides data for the current Bitbucket user
 ---
 
-# bitbucket\_user
+# bitbucket\_current\_user
 
 Provides a way to fetch data of the current user.
 

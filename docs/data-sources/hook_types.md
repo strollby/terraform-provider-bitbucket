@@ -6,7 +6,7 @@ description: |-
   Provides a data for Bitbucket Hook Event Types
 ---
 
-# bitbucket\_hook\_type
+# bitbucket\_hook\_types
 
 Provides a way to fetch data of hook types.
 

@@ -6,7 +6,7 @@ description: |-
   Provides a data for Bitbucket group members
 ---
 
-# bitbucket\_group
+# bitbucket\_group\_members
 
 Provides a way to fetch data of group members.
 
