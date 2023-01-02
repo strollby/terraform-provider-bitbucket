@@ -203,6 +203,7 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 	}
 
 	if d.HasChange("pipelines_enabled") {
+		// nolint:staticcheck
 		if v, ok := d.GetOkExists("pipelines_enabled"); ok {
 			pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
@@ -266,6 +267,7 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), repoSlug)))
 
+	// nolint:staticcheck
 	if v, ok := d.GetOkExists("pipelines_enabled"); ok {
 		pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
@@ -275,6 +277,7 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// nolint:staticcheck
 	_, branchOk := d.GetOkExists("inherit_branching_model")
 	_, mergeStratOk := d.GetOkExists("inherit_default_merge_strategy")
 
@@ -487,11 +490,13 @@ func createRepositoryInheritanceSettings(d *schema.ResourceData) *RepositoryInhe
 
 	setting := &RepositoryInheritanceSettings{}
 
+	// nolint:staticcheck
 	if v, ok := d.GetOkExists("inherit_branching_model"); ok {
 		model := v.(bool)
 		setting.BranchingModel = &model
 	}
 
+	// nolint:staticcheck
 	if v, ok := d.GetOkExists("inherit_default_merge_strategy"); ok {
 		strat := v.(bool)
 		setting.DefaultMergeStrategy = &strat
