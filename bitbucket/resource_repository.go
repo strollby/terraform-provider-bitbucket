@@ -1,8 +1,11 @@
 package bitbucket
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
@@ -128,8 +131,23 @@ func resourceRepository() *schema.Resource {
 					},
 				},
 			},
+			"inherit_default_merge_strategy": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+			},
+			"inherit_branching_model": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+			},
 		},
 	}
+}
+
+type RepositoryInheritanceSettings struct {
+	DefaultMergeStrategy *bool `json:"default_merge_strategy,omitempty"`
+	BranchingModel       *bool `json:"branching_model,omitempty"`
 }
 
 func newRepositoryFromResource(d *schema.ResourceData) *bitbucket.Repository {
@@ -162,8 +180,7 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
-
-	repository := newRepositoryFromResource(d)
+	client := m.(Clients).httpClient
 
 	var repoSlug string
 	repoSlug = d.Get("slug").(string)
@@ -171,22 +188,52 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 		repoSlug = d.Get("name").(string)
 	}
 	repoSlug = computeSlug(repoSlug)
-	repoBody := &bitbucket.RepositoriesApiRepositoriesWorkspaceRepoSlugPutOpts{
-		Body: optional.NewInterface(repository),
-	}
-
 	workspace := d.Get("owner").(string)
-	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
-	if err := handleClientError(err); err != nil {
-		return diag.FromErr(err)
+
+	if d.HasChangesExcept("pipelines_enabled", "inherit_default_merge_strategy", "inherit_branching_model") {
+		repository := newRepositoryFromResource(d)
+
+		repoBody := &bitbucket.RepositoriesApiRepositoriesWorkspaceRepoSlugPutOpts{
+			Body: optional.NewInterface(repository),
+		}
+		_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
-	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
-	pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: pipelinesEnabled}
+	if d.HasChange("pipelines_enabled") {
+		// nolint:staticcheck
+		if v, ok := d.GetOkExists("pipelines_enabled"); ok {
+			pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
-	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-	if err := handleClientError(err); err != nil {
-		return diag.FromErr(err)
+			_, _, err := pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
+			if err := handleClientError(err); err != nil {
+				return diag.FromErr(err)
+			}
+		}
+	}
+
+	if d.HasChanges("inherit_default_merge_strategy", "inherit_branching_model") {
+		setting := createRepositoryInheritanceSettings(d)
+
+		log.Printf("Repository Inheritance Settings update is: %#v", setting)
+
+		payload, err := json.Marshal(setting)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		log.Printf("Repository Inheritance Settings update encoded is: %v", string(payload))
+
+		_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+			workspace,
+			repoSlug,
+		), bytes.NewBuffer(payload))
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
 	return resourceRepositoryRead(ctx, d, m)
@@ -196,6 +243,8 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
+	client := m.(Clients).httpClient
+
 	repo := newRepositoryFromResource(d)
 
 	var repoSlug string
@@ -218,40 +267,58 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), repoSlug)))
 
-	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
-	pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: pipelinesEnabled}
+	// nolint:staticcheck
+	if v, ok := d.GetOkExists("pipelines_enabled"); ok {
+		pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
-	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-	if err := handleClientError(err); err != nil {
-		return diag.FromErr(err)
+		_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	// nolint:staticcheck
+	_, branchOk := d.GetOkExists("inherit_branching_model")
+	// nolint:staticcheck
+	_, mergeStratOk := d.GetOkExists("inherit_default_merge_strategy")
+
+	if mergeStratOk || branchOk {
+		setting := createRepositoryInheritanceSettings(d)
+
+		payload, err := json.Marshal(setting)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+			workspace,
+			repoSlug,
+		), bytes.NewBuffer(payload))
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
 	}
 
 	return resourceRepositoryRead(ctx, d, m)
 }
 
 func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	id := d.Id()
-	if id != "" {
-		idparts := strings.Split(id, "/")
-		if len(idparts) == 2 {
-			d.Set("owner", idparts[0])
-			d.Set("slug", idparts[1])
-		} else {
-			return diag.Errorf("incorrect ID format, should match `owner/slug`")
-		}
+	c := m.(Clients).genClient
+	repoApi := c.ApiClient.RepositoriesApi
+	pipeApi := c.ApiClient.PipelinesApi
+	client := m.(Clients).httpClient
+
+	workspace, repoSlug, err := repositoryId(d.Id())
+	if err != nil {
+		diag.FromErr(err)
 	}
 
-	var repoSlug string
-	repoSlug = d.Get("slug").(string)
 	if repoSlug == "" {
 		repoSlug = d.Get("name").(string)
 	}
 	repoSlug = computeSlug(repoSlug)
-
-	workspace := d.Get("owner").(string)
-	c := m.(Clients).genClient
-	repoApi := c.ApiClient.RepositoriesApi
-	pipeApi := c.ApiClient.PipelinesApi
 
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
 
@@ -265,6 +332,7 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(err)
 	}
 
+	d.Set("owner", workspace)
 	d.Set("scm", repoRes.Scm)
 	d.Set("is_private", repoRes.IsPrivate)
 	d.Set("has_wiki", repoRes.HasWiki)
@@ -298,6 +366,34 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 	} else if res.StatusCode == http.StatusNotFound {
 		d.Set("pipelines_enabled", false)
 	}
+
+	settingReq, err := client.Get(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+		workspace,
+		repoSlug,
+	))
+
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	var setting RepositoryInheritanceSettings
+
+	body, readerr := io.ReadAll(settingReq.Body)
+	if readerr != nil {
+		return diag.FromErr(readerr)
+	}
+
+	log.Printf("Repository Inheritance Settings raw is: %#v", string(body))
+
+	decodeerr := json.Unmarshal(body, &setting)
+	if decodeerr != nil {
+		return diag.FromErr(decodeerr)
+	}
+
+	log.Printf("Repository Inheritance Settings decoded is: %#v", setting)
+
+	d.Set("inherit_default_merge_strategy", setting.DefaultMergeStrategy)
+	d.Set("inherit_branching_model", setting.BranchingModel)
 
 	return nil
 }
@@ -389,4 +485,33 @@ func flattenLink(rp *bitbucket.Link) []interface{} {
 	}
 
 	return []interface{}{m}
+}
+
+func createRepositoryInheritanceSettings(d *schema.ResourceData) *RepositoryInheritanceSettings {
+
+	setting := &RepositoryInheritanceSettings{}
+
+	// nolint:staticcheck
+	if v, ok := d.GetOkExists("inherit_branching_model"); ok {
+		model := v.(bool)
+		setting.BranchingModel = &model
+	}
+
+	// nolint:staticcheck
+	if v, ok := d.GetOkExists("inherit_default_merge_strategy"); ok {
+		strat := v.(bool)
+		setting.DefaultMergeStrategy = &strat
+	}
+
+	return setting
+}
+
+func repositoryId(id string) (string, string, error) {
+	parts := strings.Split(id, "/")
+
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("unexpected format of ID (%q), expected WORKSPACE:REPO-SLUG", id)
+	}
+
+	return parts[0], parts[1], nil
 }
