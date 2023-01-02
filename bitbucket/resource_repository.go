@@ -279,6 +279,7 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 
 	// nolint:staticcheck
 	_, branchOk := d.GetOkExists("inherit_branching_model")
+	// nolint:staticcheck
 	_, mergeStratOk := d.GetOkExists("inherit_default_merge_strategy")
 
 	if mergeStratOk || branchOk {
