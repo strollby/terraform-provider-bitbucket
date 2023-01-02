@@ -31,6 +31,8 @@ func TestAccBitbucketDeployment_basic(t *testing.T) {
 					testAccCheckBitbucketDeploymentExists(resourceName, &deploy),
 					resource.TestCheckResourceAttr(resourceName, "name", rName),
 					resource.TestCheckResourceAttr(resourceName, "stage", "Staging"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.0.admin_only", "false"),
 					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "id"),
 				),
 			},
@@ -45,6 +47,63 @@ func TestAccBitbucketDeployment_basic(t *testing.T) {
 					testAccCheckBitbucketDeploymentExists(resourceName, &deploy),
 					resource.TestCheckResourceAttr(resourceName, "name", rNameUpdated),
 					resource.TestCheckResourceAttr(resourceName, "stage", "Staging"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.0.admin_only", "false"),
+					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "id"),
+				),
+			},
+		},
+	})
+}
+
+func TestAccBitbucketDeployment_admin(t *testing.T) {
+	var deploy Deployment
+
+	resourceName := "bitbucket_deployment.test"
+	rName := acctest.RandomWithPrefix("tf-test")
+
+	owner := os.Getenv("BITBUCKET_TEAM")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckBitbucketDeploymentDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBitbucketDeploymentAdmin(owner, rName, rName, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketDeploymentExists(resourceName, &deploy),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "stage", "Staging"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.0.admin_only", "true"),
+					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "id"),
+				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateVerify: true,
+			},
+			{
+				Config: testAccBitbucketDeploymentAdmin(owner, rName, rName, false),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketDeploymentExists(resourceName, &deploy),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "stage", "Staging"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.0.admin_only", "false"),
+					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "id"),
+				),
+			},
+			{
+				Config: testAccBitbucketDeploymentAdmin(owner, rName, rName, true),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketDeploymentExists(resourceName, &deploy),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "stage", "Staging"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "restrictions.0.admin_only", "true"),
 					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "id"),
 				),
 			},
@@ -94,4 +153,23 @@ resource "bitbucket_deployment" "test" {
   repository = bitbucket_repository.test.id
 }
 `, workspace, repoName, deployName)
+}
+
+func testAccBitbucketDeploymentAdmin(workspace, repoName, deployName string, admin bool) string {
+	return fmt.Sprintf(`
+resource "bitbucket_repository" "test" {
+  owner = %[1]q
+  name  = %[2]q
+}
+
+resource "bitbucket_deployment" "test" {
+  name       = %[3]q
+  stage      = "Staging"
+  repository = bitbucket_repository.test.id
+
+  restrictions {
+	admin_only = %[4]t
+  }
+}
+`, workspace, repoName, deployName, admin)
 }

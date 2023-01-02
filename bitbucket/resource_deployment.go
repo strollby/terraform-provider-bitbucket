@@ -17,13 +17,18 @@ import (
 
 // Deployment structure for handling key info
 type Deployment struct {
-	Name  string `json:"name"`
-	Stage *Stage `json:"environment_type"`
-	UUID  string `json:"uuid,omitempty"`
+	Name         string        `json:"name"`
+	Stage        *Stage        `json:"environment_type"`
+	UUID         string        `json:"uuid,omitempty"`
+	Restrictions *Restrictions `json:"restrictions,omitempty"`
 }
 
 type Stage struct {
 	Name string `json:"name"`
+}
+
+type Restrictions struct {
+	AdminOnly bool `json:"admin_only"`
 }
 
 type Changes struct {
@@ -31,7 +36,8 @@ type Changes struct {
 }
 
 type Change struct {
-	Name string `json:"name"`
+	Name         string       `json:"name,omitempty"`
+	Restrictions Restrictions `json:"restrictions,omitempty"`
 }
 
 func resourceDeployment() *schema.Resource {
@@ -69,6 +75,21 @@ func resourceDeployment() *schema.Resource {
 				Required: true,
 				ForceNew: true,
 			},
+			"restrictions": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Computed: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"admin_only": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+					},
+				},
+			},
 		},
 	}
 }
@@ -80,6 +101,12 @@ func newDeploymentFromResource(d *schema.ResourceData) *Deployment {
 			Name: d.Get("stage").(string),
 		},
 	}
+
+	if v, ok := d.GetOk("restrictions"); ok {
+		rest := expandRestrictions(v.([]interface{}))
+		dk.Restrictions = &rest
+	}
+
 	return dk
 }
 
@@ -107,10 +134,15 @@ func resourceDeploymentCreate(ctx context.Context, d *schema.ResourceData, m int
 		return diag.FromErr(readerr)
 	}
 
+	log.Printf("[DEBUG] deployment create res raw: %v", string(body))
+
 	decodeerr := json.Unmarshal(body, &deployment)
 	if decodeerr != nil {
 		return diag.FromErr(decodeerr)
 	}
+
+	log.Printf("[DEBUG] deployment create res decoded: %#v", deployment)
+
 	d.Set("uuid", deployment.UUID)
 	d.SetId(fmt.Sprintf("%s:%s", d.Get("repository"), deployment.UUID))
 
@@ -146,38 +178,55 @@ func resourceDeploymentRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(readerr)
 	}
 
-	log.Printf("[DEBUG] deployment response: %s", string(body))
+	log.Printf("[DEBUG] deployment response raw: %s", string(body))
 
 	decodeerr := json.Unmarshal(body, &deploy)
 	if decodeerr != nil {
 		return diag.FromErr(decodeerr)
 	}
 
+	log.Printf("[DEBUG] deployment response decoded: %#v", deploy)
+
 	d.Set("uuid", deploy.UUID)
 	d.Set("name", deploy.Name)
 	d.Set("stage", deploy.Stage.Name)
 	d.Set("repository", repoId)
+	d.Set("restrictions", flattenRestrictions(deploy.Restrictions))
 
 	return nil
 }
 
 func resourceDeploymentUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
+
 	rvcr := &Changes{
-		Change: &Change{
-			Name: d.Get("name").(string),
-		},
+		Change: &Change{},
 	}
+
+	if d.HasChange("name") {
+		rvcr.Change.Name = d.Get("name").(string)
+	}
+
+	if d.HasChange("restrictions") {
+		rvcr.Change.Restrictions = expandRestrictions(d.Get("restrictions").([]interface{}))
+	}
+
+	log.Printf("[DEBUG] deployment update req: %#v", rvcr)
+
 	bytedata, err := json.Marshal(rvcr)
 
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
+	log.Printf("[DEBUG] deployment update req encoded: %v", string(bytedata))
+
 	req, err := client.Post(fmt.Sprintf("2.0/repositories/%s/environments/%s/changes/",
 		d.Get("repository").(string),
 		d.Get("uuid").(string),
 	), bytes.NewBuffer(bytedata))
+
+	log.Printf("[DEBUG] deployment update res: %#v", req)
 
 	if err != nil {
 		return diag.FromErr(err)
@@ -199,11 +248,33 @@ func resourceDeploymentDelete(ctx context.Context, d *schema.ResourceData, m int
 	return diag.FromErr(err)
 }
 
+func expandRestrictions(conf []interface{}) Restrictions {
+	tfMap, _ := conf[0].(map[string]interface{})
+
+	target := Restrictions{
+		AdminOnly: tfMap["admin_only"].(bool),
+	}
+
+	return target
+}
+
+func flattenRestrictions(rp *Restrictions) []interface{} {
+	if rp == nil {
+		return []interface{}{}
+	}
+
+	m := map[string]interface{}{
+		"admin_only": rp.AdminOnly,
+	}
+
+	return []interface{}{m}
+}
+
 func deploymentId(id string) (string, string, error) {
 	parts := strings.Split(id, ":")
 
 	if len(parts) != 2 {
-		return "", "", fmt.Errorf("unexpected format of ID (%q), expected REPO-ID/DEPLOYMENT-UUID", id)
+		return "", "", fmt.Errorf("unexpected format of ID (%q), expected REPO-ID:DEPLOYMENT-UUID", id)
 	}
 
 	return parts[0], parts[1], nil

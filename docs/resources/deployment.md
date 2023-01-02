@@ -34,6 +34,11 @@ resource "bitbucket_deployment" "test" {
 * `name` - (Required) The name of the deployment environment
 * `stage` - (Required) The stage (Test, Staging, Production)
 * `repository` - (Required) The repository ID to which you want to assign this deployment environment to
+* `restrictions` - (Optional) Deployment restrictions. See [Restrictions](#restrictions) below.
+
+### Restrictions
+
+* `admin_only` - (Required) Only Admins can deploy this deployment stage.
 
 ## Attributes Reference
 
