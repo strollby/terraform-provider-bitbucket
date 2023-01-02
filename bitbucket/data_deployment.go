@@ -21,6 +21,10 @@ func dataDeployment() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 			},
+			"workspace": {
+				Type:     schema.TypeString,
+				Required: true,
+			},
 			"repository": {
 				Type:     schema.TypeString,
 				Required: true,
@@ -40,8 +44,11 @@ func dataDeployment() *schema.Resource {
 func dataReadDeployment(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).httpClient
 
+	workspace := d.Get("workspace").(string)
 	repoId := d.Get("repository").(string)
-	res, err := c.Get(fmt.Sprintf("2.0/repositories/%s/environments/%s",
+
+	res, err := c.Get(fmt.Sprintf("2.0/repositories/%s/%s/environments/%s",
+		workspace,
 		repoId,
 		d.Get("uuid").(string),
 	))
@@ -77,6 +84,7 @@ func dataReadDeployment(ctx context.Context, d *schema.ResourceData, m interface
 	d.Set("name", deploy.Name)
 	d.Set("stage", deploy.Stage.Name)
 	d.Set("repository", repoId)
+	d.Set("workspace", workspace)
 
 	return nil
 }

@@ -17,7 +17,8 @@ OAuth2 Scopes: `none`
 ```hcl
 data "bitbucket_deployment" "example" {
   uuid       = "example"
-  repository = "example/example"
+  repository = "example"
+  workspace  = "example"
 }
 ```
 
@@ -26,7 +27,8 @@ data "bitbucket_deployment" "example" {
 The following arguments are supported:
 
 * `uuid` - (Required) The environment UUID.
-* `repository` - (Required) The `workspace/repo-id`.
+* `repository` - (Required) The repository name.
+* `workspace` - (Required) The workspace name.
 
 ## Attributes Reference
 
