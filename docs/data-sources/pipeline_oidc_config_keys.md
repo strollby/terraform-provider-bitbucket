@@ -6,7 +6,7 @@ description: |-
   Provides a data for a Bitbucket pipeline OIDC Config Keys
 ---
 
-# bitbucket\_user
+# bitbucket\_pipeline\_oidc\_config\_keys
 
 Provides a way to fetch data on a pipeline OIDC Config Keys.
 

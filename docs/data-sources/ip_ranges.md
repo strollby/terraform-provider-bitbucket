@@ -6,7 +6,7 @@ description: |-
   Provides a data for Bitbucket IP Ranges
 ---
 
-# bitbucket\_hook\_type
+# bitbucket\_ip\_ranges
 
 Provides a way to fetch IP Ranges for whitelisting.
 
