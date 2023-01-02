@@ -51,7 +51,8 @@ The following arguments are supported in the `provider` block:
   Please note that this has to be an [App
   Password](https://support.atlassian.com/bitbucket-cloud/docs/app-passwords/)
   that has to be created in the [Account
-  Settings](https://bitbucket.org/account/settings/app-passwords/). If
+  Settings](https://bitbucket.org/account/settings/app-passwords/). You can
+  also set this via the `BITBUCKET_PASSWORD` environment variable. If
   configured, requires `username` to be configured as well.
 
 * `oauth_client_id` - (Optional) OAuth client ID to use for authentication via
