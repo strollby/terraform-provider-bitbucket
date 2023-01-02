@@ -328,6 +328,7 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(err)
 	}
 
+	d.Set("owner", workspace)
 	d.Set("scm", repoRes.Scm)
 	d.Set("is_private", repoRes.IsPrivate)
 	d.Set("has_wiki", repoRes.HasWiki)
