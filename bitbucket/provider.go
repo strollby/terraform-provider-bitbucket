@@ -86,6 +86,7 @@ func Provider() *schema.Provider {
 			"bitbucket_project_default_reviewers":   resourceProjectDefaultReviewers(),
 			"bitbucket_repository":                  resourceRepository(),
 			"bitbucket_repository_group_permission": resourceRepositoryGroupPermission(),
+			"bitbucket_repository_user_permission":  resourceRepositoryUserPermission(),
 			"bitbucket_repository_variable":         resourceRepositoryVariable(),
 			"bitbucket_ssh_key":                     resourceSshKey(),
 			"bitbucket_workspace_hook":              resourceWorkspaceHook(),
