@@ -11,6 +11,75 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/terraform"
 )
 
+func TestBitbucketRepository_ComputeSlug(t *testing.T) {
+	t.Parallel()
+
+	testCases := []struct {
+		Name           string
+		Input          string
+		ExpectedOutput string
+	}{
+		{
+			Name:           "Left hand en-dash normalization",
+			Input:          "------a_",
+			ExpectedOutput: "a_",
+		},
+		{
+			Name:           "Right hand en-dash normalization",
+			Input:          "a_------",
+			ExpectedOutput: "a_",
+		},
+		{
+			Name:           "En-dash consecutive normalization",
+			Input:          "a---b_---a",
+			ExpectedOutput: "a-b_-a",
+		},
+		{
+			Name:           "En-dash consecutive and begin/end normalization",
+			Input:          "--a---b_---a----",
+			ExpectedOutput: "a-b_-a",
+		},
+		{
+			Name:           "Allow dot character",
+			Input:          "test.repository",
+			ExpectedOutput: "test.repository",
+		},
+		{
+			Name:           `Replace & with en-dash`,
+			Input:          "test&repository",
+			ExpectedOutput: "test-repository",
+		},
+		{
+			Name:           `Replace multiple ; with en-dash`,
+			Input:          "test;repository;;",
+			ExpectedOutput: "test-repository",
+		},
+		{
+			Name:           `Truncate long slug with en-dash`,
+			Input:          "my-very-long-repository-name-that-is-over-the-max-allow-characters",
+			ExpectedOutput: "my-very-long-repository-name-that-is-over-the-max-allow",
+		},
+		{
+			Name:           `Do not truncate long slug without en-dash`,
+			Input:          "myverylongrepositorynamethatisoverthemaxallowcharactersmyverylongrepositorynamethatisoverthemaxallowcharacters",
+			ExpectedOutput: "myverylongrepositorynamethatisoverthemaxallowcharactersmyverylongrepositorynamethatisoverthemaxallowcharacters",
+		},
+	}
+
+	for i, testCase := range testCases {
+		i, testCase := i, testCase
+
+		t.Run(testCase.Name, func(t *testing.T) {
+			t.Parallel()
+
+			result := computeSlug(testCase.Input)
+			if result != testCase.ExpectedOutput {
+				t.Fatalf("%d: expected result (%s), received: %s", i, testCase.ExpectedOutput, result)
+			}
+		})
+	}
+}
+
 func TestAccBitbucketRepository_basic(t *testing.T) {
 	rName := acctest.RandomWithPrefix("tf-test")
 	workspace := os.Getenv("BITBUCKET_TEAM")
