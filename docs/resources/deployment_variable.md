@@ -28,7 +28,7 @@ resource "bitbucket_deployment" "test" {
 }
 resource "bitbucket_deployment_variable" "country" {
   deployment = bitbucket_deployment.test.id
-  name       = "COUNTRY"
+  key        = "COUNTRY"
   value      = "Kenya"
   secured    = false
 }
