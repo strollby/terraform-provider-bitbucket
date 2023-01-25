@@ -417,11 +417,32 @@ func resourceRepositoryDelete(ctx context.Context, d *schema.ResourceData, m int
 	return nil
 }
 
-var slugForbiddenCharacters *regexp.Regexp = regexp.MustCompile(`[\W-]`)
+// See https://confluence.atlassian.com/bbkb/what-is-a-repository-slug-1168845069.html
+// Allows ASCII alphanumeric characters, underscores (_), en dashes (-), and periods (.) in repository slugs.
+var slugForbiddenCharacters = regexp.MustCompile(`[^a-zA-Z0-9_.-]`)
+
+// Limited to 62 characters.
+var slugMaxCharacters = 62
+
+// Can only end with an en dash if the entire repository slug is made up of en dashes (-).
+var slugEnDashRightCharacters = regexp.MustCompile(`([^-])-+$`)
+
+// A repository slug can also start with an en dash (-) if the entire repository slug is made up of en dashes.
+var slugEnDashLeftCharacters = regexp.MustCompile(`^-+([^-])`)
+
+// Does not allow consecutive en dashes (-) to be used in a repository slug unless the entire slug is made up of en dashes.
+var slugEnDashConsecutive = regexp.MustCompile(`--+([^-])`)
 
 func computeSlug(repoName string) string {
-	slug := slugForbiddenCharacters.ReplaceAllString(repoName, "-")
-	return strings.ToLower(slug)
+	slugTruncated := repoName
+	if len(repoName) > slugMaxCharacters && strings.Contains(repoName, "-") {
+		slugTruncated = repoName[:strings.LastIndex(repoName, "-")+1]
+	}
+	slugNormalized := slugForbiddenCharacters.ReplaceAllString(slugTruncated, "-")
+	slugLeftDashNormalized := slugEnDashLeftCharacters.ReplaceAllString(slugNormalized, "$1")
+	slugRightDashNormalized := slugEnDashRightCharacters.ReplaceAllString(slugLeftDashNormalized, "$1")
+	slugEnDashConsecutiveNormalized := slugEnDashConsecutive.ReplaceAllString(slugRightDashNormalized, "-$1")
+	return strings.ToLower(slugEnDashConsecutiveNormalized)
 }
 
 func splitFullName(repoFullName string) (string, string, error) {
