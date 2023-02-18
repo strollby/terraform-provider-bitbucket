@@ -23,6 +23,11 @@ resource "bitbucket_branch_restriction" "master" {
 
   kind = "push"
   pattern = "master"
+  
+  groups {
+    slug = "my-group"
+    owner = "my-owner"
+  }
 }
 ```
 
