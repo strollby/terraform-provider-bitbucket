@@ -1,12 +1,13 @@
 module github.com/terraform-providers/terraform-provider-bitbucket
 
 require (
-	github.com/strollby/bitbucket-go-client v0.4.0
+	github.com/DrFaust92/bitbucket-go-client v0.6.0
 	github.com/antihax/optional v1.0.0
 	github.com/hashicorp/terraform-plugin-sdk/v2 v2.25.0
 	github.com/satori/go.uuid v1.2.0
+	github.com/strollby/bitbucket-go-client v0.1.3
 	golang.org/x/crypto v0.6.0
-	golang.org/x/oauth2 v0.5.0
+	golang.org/x/oauth2 v0.6.0
 )
 
 require (
@@ -46,10 +47,10 @@ require (
 	github.com/vmihailenco/msgpack/v4 v4.3.12 // indirect
 	github.com/vmihailenco/tagparser v0.1.2 // indirect
 	github.com/zclconf/go-cty v1.12.1 // indirect
-	golang.org/x/mod v0.7.0 // indirect
-	golang.org/x/net v0.7.0 // indirect
-	golang.org/x/sys v0.5.0 // indirect
-	golang.org/x/text v0.7.0 // indirect
+	golang.org/x/mod v0.8.0 // indirect
+	golang.org/x/net v0.8.0 // indirect
+	golang.org/x/sys v0.6.0 // indirect
+	golang.org/x/text v0.8.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20220822174746-9e6da59bd2fc // indirect
 	google.golang.org/grpc v1.51.0 // indirect
