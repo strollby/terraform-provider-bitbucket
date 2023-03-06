@@ -1,9 +1,8 @@
 *.dll
 *.exe
+*.env
 .DS_Store
 example.tf
-terraform.tfplan
-terraform.tfstate
 bin/
 dist/
 modules-dev/
@@ -14,8 +13,6 @@ website/build
 website/node_modules
 .vagrant/
 *.backup
-./*.tfstate
-.terraform/
 *.log
 *.bak
 *~
@@ -28,6 +25,15 @@ website/node_modules
 website/vendor
 vendor/
 .vscode/
+
+# Terraform
+terraform.tfplan
+terraform.tfstate
+.terraformrc
+./*.tfstate
+.terraform/
+
+terraform-provider-bitbucket
 
 # Test exclusions
 !command/test-fixtures/**/*.tfstate

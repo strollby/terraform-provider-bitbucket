@@ -1,12 +1,14 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -27,12 +29,12 @@ type PaginatedReviewers struct {
 
 func resourceDefaultReviewers() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceDefaultReviewersCreate,
-		Read:   resourceDefaultReviewersRead,
-		Update: resourceDefaultReviewersUpdate,
-		Delete: resourceDefaultReviewersDelete,
+		CreateWithoutTimeout: resourceDefaultReviewersCreate,
+		ReadWithoutTimeout:   resourceDefaultReviewersRead,
+		UpdateWithoutTimeout: resourceDefaultReviewersUpdate,
+		DeleteWithoutTimeout: resourceDefaultReviewersDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -55,7 +57,7 @@ func resourceDefaultReviewers() *schema.Resource {
 	}
 }
 
-func resourceDefaultReviewersCreate(d *schema.ResourceData, m interface{}) error {
+func resourceDefaultReviewersCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	prApi := c.ApiClient.PullrequestsApi
 
@@ -63,33 +65,29 @@ func resourceDefaultReviewersCreate(d *schema.ResourceData, m interface{}) error
 	workspace := d.Get("owner").(string)
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		_, reviewerResp, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
 
-		if err != nil {
-			return err
-		}
-
-		if reviewerResp.StatusCode != 200 {
-			return fmt.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
+		_, _, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
 		}
 	}
 
 	d.SetId(fmt.Sprintf("%s/%s/reviewers", workspace, repo))
-	return resourceDefaultReviewersRead(d, m)
+	return resourceDefaultReviewersRead(ctx, d, m)
 }
 
-func resourceDefaultReviewersRead(d *schema.ResourceData, m interface{}) error {
+func resourceDefaultReviewersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	owner, repo, err := defaultReviewersId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	resourceURL := fmt.Sprintf("2.0/repositories/%s/%s/default-reviewers", owner, repo)
 
 	res, err := client.Get(resourceURL)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	if res.StatusCode == http.StatusNotFound {
@@ -104,13 +102,13 @@ func resourceDefaultReviewersRead(d *schema.ResourceData, m interface{}) error {
 	for {
 		reviewersResponse, err := client.Get(resourceURL)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		decoder := json.NewDecoder(reviewersResponse.Body)
 		err = decoder.Decode(&reviewers)
 		if err != nil {
-			return err
+			return diag.FromErr(err)
 		}
 
 		for _, reviewer := range reviewers.Values {
@@ -133,7 +131,7 @@ func resourceDefaultReviewersRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceDefaultReviewersUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceDefaultReviewersUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 
 	prApi := c.ApiClient.PullrequestsApi
@@ -148,37 +146,24 @@ func resourceDefaultReviewersUpdate(d *schema.ResourceData, m interface{}) error
 
 	for _, user := range add.List() {
 		userName := user.(string)
-		_, reviewerResp, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
-
-		if err != nil {
-			return err
-		}
-
-		if reviewerResp.StatusCode != 200 {
-			return fmt.Errorf("failed to create reviewer %s got code %d", userName, reviewerResp.StatusCode)
+		_, _, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
 		}
 	}
 
 	for _, user := range remove.List() {
 		userName := user.(string)
-		reviewerResp, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
-
-		if err != nil {
-			return err
-		}
-
-		if reviewerResp.StatusCode != 204 {
-			return fmt.Errorf("[%d] Could not delete %s from default reviewers",
-				reviewerResp.StatusCode,
-				userName,
-			)
+		_, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
 		}
 	}
 
-	return resourceDefaultReviewersRead(d, m)
+	return resourceDefaultReviewersRead(ctx, d, m)
 }
 
-func resourceDefaultReviewersDelete(d *schema.ResourceData, m interface{}) error {
+func resourceDefaultReviewersDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	prApi := c.ApiClient.PullrequestsApi
 
@@ -186,17 +171,9 @@ func resourceDefaultReviewersDelete(d *schema.ResourceData, m interface{}) error
 	workspace := d.Get("owner").(string)
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		reviewerResp, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
-
-		if err != nil {
-			return err
-		}
-
-		if reviewerResp.StatusCode != 204 {
-			return fmt.Errorf("[%d] Could not delete %s from default reviewer",
-				reviewerResp.StatusCode,
-				userName,
-			)
+		_, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
 		}
 	}
 	return nil

@@ -8,7 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestAccPipelineOidcConfigKeys_basic(t *testing.T) {
+func TestAccDataSourcePipelineOidcConfigKeys_basic(t *testing.T) {
 	dataSourceName := "data.bitbucket_pipeline_oidc_config_keys.test"
 	workspace := os.Getenv("BITBUCKET_TEAM")
 	resource.Test(t, resource.TestCase{

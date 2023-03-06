@@ -196,7 +196,7 @@ func resourceBranchRestrictionsCreate(ctx context.Context, d *schema.ResourceDat
 	workspace := d.Get("owner").(string)
 	branchRestrictionReq, _, err := brApi.RepositoriesWorkspaceRepoSlugBranchRestrictionsPost(c.AuthContext, *branchRestriction, repo, workspace)
 
-	if err != nil {
+	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -218,7 +218,7 @@ func resourceBranchRestrictionsRead(ctx context.Context, d *schema.ResourceData,
 		return nil
 	}
 
-	if err != nil {
+	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -243,7 +243,7 @@ func resourceBranchRestrictionsUpdate(ctx context.Context, d *schema.ResourceDat
 		*branchRestriction, url.PathEscape(d.Id()),
 		d.Get("repository").(string), d.Get("owner").(string))
 
-	if err != nil {
+	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -262,7 +262,7 @@ func resourceBranchRestrictionsDelete(ctx context.Context, d *schema.ResourceDat
 		return nil
 	}
 
-	if err != nil {
+	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
 	}
 

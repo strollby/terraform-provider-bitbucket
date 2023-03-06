@@ -52,6 +52,7 @@ The following arguments are supported:
 #### Selector
 
 * `pattern` - (Required) The name of the matching pipeline definition.
+* `type` - (Optional) Selector type. Default value is `branches`.
 
 ## Attributes Reference
 

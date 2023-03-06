@@ -1,17 +1,19 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func dataPipelineOidcConfig() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadPipelineOidcConfig,
+		ReadWithoutTimeout: dataReadPipelineOidcConfig,
 
 		Schema: map[string]*schema.Schema{
 			"workspace": {
@@ -26,26 +28,26 @@ func dataPipelineOidcConfig() *schema.Resource {
 	}
 }
 
-func dataReadPipelineOidcConfig(d *schema.ResourceData, m interface{}) error {
+func dataReadPipelineOidcConfig(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).httpClient
 
 	workspace := d.Get("workspace").(string)
 	req, err := c.Get(fmt.Sprintf("2.0/workspaces/%s/pipelines-config/identity/oidc/.well-known/openid-configuration", workspace))
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	if req.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("user not found")
+		return diag.Errorf("user not found")
 	}
 
 	if req.StatusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("internal server error fetching user")
+		return diag.Errorf("internal server error fetching user")
 	}
 
-	body, readerr := ioutil.ReadAll(req.Body)
+	body, readerr := io.ReadAll(req.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Pipeline Oidc Config Response JSON: %v", string(body))

@@ -1,11 +1,13 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/strollby/bitbucket-go-client"
@@ -13,12 +15,12 @@ import (
 
 func resourceProject() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceProjectCreate,
-		Update: resourceProjectUpdate,
-		Read:   resourceProjectRead,
-		Delete: resourceProjectDelete,
+		CreateWithoutTimeout: resourceProjectCreate,
+		UpdateWithoutTimeout: resourceProjectUpdate,
+		ReadWithoutTimeout:   resourceProjectRead,
+		DeleteWithoutTimeout: resourceProjectDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -99,7 +101,7 @@ func newProjectFromResource(d *schema.ResourceData) *bitbucket.Project {
 	return project
 }
 
-func resourceProjectUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	projectApi := c.ApiClient.ProjectsApi
 	project := newProjectFromResource(d)
@@ -111,15 +113,14 @@ func resourceProjectUpdate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	_, _, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyPut(c.AuthContext, *project, projectKey, d.Get("owner").(string))
-
-	if err != nil {
-		return fmt.Errorf("error updating project (%s): %w", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
-	return resourceProjectRead(d, m)
+	return resourceProjectRead(ctx, d, m)
 }
 
-func resourceProjectCreate(d *schema.ResourceData, m interface{}) error {
+func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	projectApi := c.ApiClient.ProjectsApi
 	project := newProjectFromResource(d)
@@ -133,16 +134,16 @@ func resourceProjectCreate(d *schema.ResourceData, m interface{}) error {
 	owner := d.Get("owner").(string)
 
 	projRes, _, err := projectApi.WorkspacesWorkspaceProjectsPost(c.AuthContext, *project, owner)
-	if err != nil {
-		return fmt.Errorf("error creating project (%s): %w", projectKey, err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", owner, projRes.Key)))
 
-	return resourceProjectRead(d, m)
+	return resourceProjectRead(ctx, d, m)
 }
 
-func resourceProjectRead(d *schema.ResourceData, m interface{}) error {
+func resourceProjectRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	id := d.Id()
 	if id != "" {
 		idparts := strings.Split(id, "/")
@@ -150,7 +151,7 @@ func resourceProjectRead(d *schema.ResourceData, m interface{}) error {
 			d.Set("owner", idparts[0])
 			d.Set("key", idparts[1])
 		} else {
-			return fmt.Errorf("incorrect ID format, should match `owner/key`")
+			return diag.Errorf("incorrect ID format, should match `owner/key`")
 		}
 	}
 
@@ -165,13 +166,14 @@ func resourceProjectRead(d *schema.ResourceData, m interface{}) error {
 
 	projRes, res, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyGet(c.AuthContext, projectKey, d.Get("owner").(string))
 
-	if err != nil {
-		return fmt.Errorf("error reading project (%s): %w", d.Id(), err)
-	}
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Project (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return nil
+	}
+
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("key", projRes.Key)
@@ -185,7 +187,7 @@ func resourceProjectRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceProjectDelete(d *schema.ResourceData, m interface{}) error {
+func resourceProjectDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	var projectKey string
 	projectKey = d.Get("key").(string)
@@ -197,8 +199,8 @@ func resourceProjectDelete(d *schema.ResourceData, m interface{}) error {
 	projectApi := c.ApiClient.ProjectsApi
 
 	_, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyDelete(c.AuthContext, projectKey, d.Get("owner").(string))
-	if err != nil {
-		return fmt.Errorf("error deleting project (%s): %w", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return nil

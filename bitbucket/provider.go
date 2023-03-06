@@ -8,6 +8,8 @@ import (
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/strollby/bitbucket-go-client"
+	oauth2bitbucket "golang.org/x/oauth2/bitbucket"
+	oauth2clientcreds "golang.org/x/oauth2/clientcredentials"
 )
 
 type ProviderConfig struct {
@@ -20,8 +22,12 @@ type Clients struct {
 	httpClient Client
 }
 
-// Provider will create the necessary terraform provider to talk to the Bitbucket APIs you should
-// specify a USERNAME and PASSWORD or a OAUTH Token
+// Provider will create the necessary terraform provider to talk to the
+// Bitbucket APIs you should either specify Username and App Password, OAuth
+// Client Credentials or a valid OAuth Access Token.
+//
+// See the Bitbucket authentication documentation for more:
+// https://developer.atlassian.com/cloud/bitbucket/rest/intro/#authentication
 func Provider() *schema.Provider {
 	return &schema.Provider{
 		Schema: map[string]*schema.Schema{
@@ -29,54 +35,73 @@ func Provider() *schema.Provider {
 				Optional:      true,
 				Type:          schema.TypeString,
 				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_USERNAME", nil),
-				ConflictsWith: []string{"oauth_token"},
+				ConflictsWith: []string{"oauth_client_id", "oauth_client_secret", "oauth_token"},
 				RequiredWith:  []string{"password"},
 			},
 			"password": {
 				Type:          schema.TypeString,
 				Optional:      true,
 				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_PASSWORD", nil),
-				ConflictsWith: []string{"oauth_token"},
+				ConflictsWith: []string{"oauth_client_id", "oauth_client_secret", "oauth_token"},
 				RequiredWith:  []string{"username"},
+			},
+			"oauth_client_id": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_OAUTH_CLIENT_ID", nil),
+				ConflictsWith: []string{"username", "password", "oauth_token"},
+				RequiredWith:  []string{"oauth_client_secret"},
+			},
+			"oauth_client_secret": {
+				Type:          schema.TypeString,
+				Optional:      true,
+				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_OAUTH_CLIENT_SECRET", nil),
+				ConflictsWith: []string{"username", "password", "oauth_token"},
+				RequiredWith:  []string{"oauth_client_id"},
 			},
 			"oauth_token": {
 				Type:          schema.TypeString,
 				Optional:      true,
 				DefaultFunc:   schema.EnvDefaultFunc("BITBUCKET_OAUTH_TOKEN", nil),
-				ConflictsWith: []string{"username", "password"},
+				ConflictsWith: []string{"username", "password", "oauth_client_id", "oauth_client_secret"},
 			},
 		},
 		ConfigureFunc: providerConfigure,
 		ResourcesMap: map[string]*schema.Resource{
-			"bitbucket_hook":                    resourceHook(),
-			"bitbucket_group":                   resourceGroup(),
-			"bitbucket_group_membership":        resourceGroupMembership(),
-			"bitbucket_default_reviewers":       resourceDefaultReviewers(),
-			"bitbucket_repository":              resourceRepository(),
-			"bitbucket_forked_repository":       resourceForkedRepository(),
-			"bitbucket_repository_variable":     resourceRepositoryVariable(),
-			"bitbucket_project":                 resourceProject(),
-			"bitbucket_deploy_key":              resourceDeployKey(),
-			"bitbucket_pipeline_ssh_key":        resourcePipelineSshKey(),
-			"bitbucket_pipeline_ssh_known_host": resourcePipelineSshKnownHost(),
-			"bitbucket_pipeline_schedule":       resourcePipelineSchedule(),
-			"bitbucket_ssh_key":                 resourceSshKey(),
-			"bitbucket_branch_restriction":      resourceBranchRestriction(),
-			"bitbucket_branching_model":         resourceBranchingModel(),
-			"bitbucket_deployment":              resourceDeployment(),
-			"bitbucket_deployment_variable":     resourceDeploymentVariable(),
-			"bitbucket_workspace_hook":          resourceWorkspaceHook(),
+			"bitbucket_branch_restriction":          resourceBranchRestriction(),
+			"bitbucket_branching_model":             resourceBranchingModel(),
+			"bitbucket_default_reviewers":           resourceDefaultReviewers(),
+			"bitbucket_deploy_key":                  resourceDeployKey(),
+			"bitbucket_deployment":                  resourceDeployment(),
+			"bitbucket_deployment_variable":         resourceDeploymentVariable(),
+			"bitbucket_forked_repository":           resourceForkedRepository(),
+			"bitbucket_group":                       resourceGroup(),
+			"bitbucket_group_membership":            resourceGroupMembership(),
+			"bitbucket_hook":                        resourceHook(),
+			"bitbucket_pipeline_schedule":           resourcePipelineSchedule(),
+			"bitbucket_pipeline_ssh_key":            resourcePipelineSshKey(),
+			"bitbucket_pipeline_ssh_known_host":     resourcePipelineSshKnownHost(),
+			"bitbucket_project":                     resourceProject(),
+			"bitbucket_project_branching_model":     resourceProjectBranchingModel(),
+			"bitbucket_project_default_reviewers":   resourceProjectDefaultReviewers(),
+			"bitbucket_repository":                  resourceRepository(),
+			"bitbucket_repository_group_permission": resourceRepositoryGroupPermission(),
+			"bitbucket_repository_user_permission":  resourceRepositoryUserPermission(),
+			"bitbucket_repository_variable":         resourceRepositoryVariable(),
+			"bitbucket_ssh_key":                     resourceSshKey(),
+			"bitbucket_workspace_hook":              resourceWorkspaceHook(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
+			"bitbucket_current_user":              dataCurrentUser(),
+			"bitbucket_deployment":                dataDeployment(),
 			"bitbucket_group":                     dataGroup(),
-			"bitbucket_groups":                    dataGroups(),
 			"bitbucket_group_members":             dataGroupMembers(),
+			"bitbucket_groups":                    dataGroups(),
+			"bitbucket_hook_types":                dataHookTypes(),
 			"bitbucket_ip_ranges":                 dataIPRanges(),
 			"bitbucket_pipeline_oidc_config":      dataPipelineOidcConfig(),
 			"bitbucket_pipeline_oidc_config_keys": dataPipelineOidcConfigKeys(),
-			"bitbucket_hook_types":                dataHookTypes(),
 			"bitbucket_user":                      dataUser(),
-			"bitbucket_current_user":              dataCurrentUser(),
 			"bitbucket_workspace":                 dataWorkspace(),
 			"bitbucket_workspace_members":         dataWorkspaceMembers(),
 		},
@@ -84,7 +109,6 @@ func Provider() *schema.Provider {
 }
 
 func providerConfigure(d *schema.ResourceData) (interface{}, error) {
-
 	authCtx := context.Background()
 
 	client := &Client{
@@ -114,6 +138,24 @@ func providerConfigure(d *schema.ResourceData) (interface{}, error) {
 		token := v.(string)
 		client.OAuthToken = &token
 		authCtx = context.WithValue(authCtx, bitbucket.ContextAccessToken, token)
+	}
+
+	if clientID, ok := d.GetOk("oauth_client_id"); ok {
+		clientSecret, ok := d.GetOk("oauth_client_secret")
+		if !ok {
+			return nil, fmt.Errorf("found client ID for OAuth via Client Credentials Grant, but client secret was not specified")
+		}
+
+		config := &oauth2clientcreds.Config{
+			ClientID:     clientID.(string),
+			ClientSecret: clientSecret.(string),
+			TokenURL:     oauth2bitbucket.Endpoint.TokenURL,
+		}
+
+		tokenSource := config.TokenSource(authCtx)
+
+		client.OAuthTokenSource = tokenSource
+		authCtx = context.WithValue(authCtx, bitbucket.ContextOAuth2, tokenSource)
 	}
 
 	conf := bitbucket.NewConfiguration()

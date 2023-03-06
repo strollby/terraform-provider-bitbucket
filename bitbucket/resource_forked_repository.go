@@ -17,10 +17,10 @@ import (
 
 func resourceForkedRepository() *schema.Resource {
 	return &schema.Resource{
-		CreateContext: resourceForkedRepositoryCreate,
-		Update:        resourceRepositoryUpdate,
-		ReadContext:   resourceForkedRepositoryRead,
-		Delete:        resourceRepositoryDelete,
+		CreateContext:        resourceForkedRepositoryCreate,
+		UpdateWithoutTimeout: resourceRepositoryUpdate,
+		ReadContext:          resourceForkedRepositoryRead,
+		DeleteWithoutTimeout: resourceRepositoryDelete,
 		Importer: &schema.ResourceImporter{
 			StateContext: schema.ImportStatePassthroughContext,
 		},
@@ -211,9 +211,8 @@ func resourceForkedRepositoryCreate(ctx context.Context, d *schema.ResourceData,
 		Body: optional.NewInterface(requestRepo),
 	}
 	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugForksPost(c.AuthContext, parentRepoSlug, parentWorkspace, repoBody)
-	if err != nil {
-		swaggerErr := err.(bitbucket.GenericSwaggerError)
-		return diag.Errorf("error forking repository (%s) from (%s): %s", repoSlug, parentRepoSlug, string(swaggerErr.Body()))
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), repoSlug)))
@@ -228,8 +227,9 @@ func resourceForkedRepositoryCreate(ctx context.Context, d *schema.ResourceData,
 				fmt.Errorf("Permissions error setting Pipelines config, retrying..."),
 			)
 		}
-		if err != nil {
-			return resource.NonRetryableError(fmt.Errorf("unexpected error enabling pipeline for repository (%s): %w", repoSlug, err))
+
+		if err := handleClientError(err); err != nil {
+			return resource.NonRetryableError(err)
 		}
 		return nil
 	})
@@ -237,7 +237,7 @@ func resourceForkedRepositoryCreate(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(retryErr)
 	}
 
-	return diag.FromErr(resourceRepositoryRead(d, m))
+	return resourceRepositoryRead(ctx, d, m)
 }
 
 func resourceForkedRepositoryRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
@@ -265,14 +265,15 @@ func resourceForkedRepositoryRead(ctx context.Context, d *schema.ResourceData, m
 	pipeApi := c.ApiClient.PipelinesApi
 
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
-	if err != nil {
-		return diag.FromErr(fmt.Errorf("error reading repository (%s): %w", d.Id(), err))
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Repository (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return nil
+	}
+
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("scm", repoRes.Scm)
@@ -310,8 +311,7 @@ func resourceForkedRepositoryRead(ctx context.Context, d *schema.ResourceData, m
 	d.Set("link", flattenLinks(repoRes.Links))
 
 	pipelinesConfigReq, res, err := pipeApi.GetRepositoryPipelineConfig(c.AuthContext, workspace, repoSlug)
-
-	if err != nil && res.StatusCode != http.StatusNotFound {
+	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
 	}
 

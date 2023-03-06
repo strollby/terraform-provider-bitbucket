@@ -2,24 +2,26 @@ package bitbucket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 func resourceWorkspaceHook() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceWorkspaceHookCreate,
-		Read:   resourceWorkspaceHookRead,
-		Update: resourceWorkspaceHookUpdate,
-		Delete: resourceWorkspaceHookDelete,
+		CreateWithoutTimeout: resourceWorkspaceHookCreate,
+		ReadWithoutTimeout:   resourceWorkspaceHookRead,
+		UpdateWithoutTimeout: resourceWorkspaceHookUpdate,
+		DeleteWithoutTimeout: resourceWorkspaceHookDelete,
 		Importer: &schema.ResourceImporter{
 			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
 				idParts := strings.Split(d.Id(), "/")
@@ -98,13 +100,13 @@ func resourceWorkspaceHook() *schema.Resource {
 	}
 }
 
-func resourceWorkspaceHookCreate(d *schema.ResourceData, m interface{}) error {
+func resourceWorkspaceHookCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	hook := createHook(d)
 
 	payload, err := json.Marshal(hook)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	hookReq, err := client.Post(fmt.Sprintf("2.0/workspaces/%s/hooks",
@@ -112,24 +114,24 @@ func resourceWorkspaceHookCreate(d *schema.ResourceData, m interface{}) error {
 	), bytes.NewBuffer(payload))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	body, readerr := ioutil.ReadAll(hookReq.Body)
+	body, readerr := io.ReadAll(hookReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	decodeerr := json.Unmarshal(body, &hook)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	d.SetId(hook.UUID)
 
-	return resourceWorkspaceHookRead(d, m)
+	return resourceWorkspaceHookRead(ctx, d, m)
 }
-func resourceWorkspaceHookRead(d *schema.ResourceData, m interface{}) error {
+func resourceWorkspaceHookRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	hookReq, err := client.Get(fmt.Sprintf("2.0/workspaces/%s/hooks/%s",
@@ -144,7 +146,7 @@ func resourceWorkspaceHookRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	log.Printf("ID: %s", url.PathEscape(d.Id()))
@@ -152,14 +154,14 @@ func resourceWorkspaceHookRead(d *schema.ResourceData, m interface{}) error {
 	if hookReq.StatusCode == 200 {
 		var hook Hook
 
-		body, readerr := ioutil.ReadAll(hookReq.Body)
+		body, readerr := io.ReadAll(hookReq.Body)
 		if readerr != nil {
-			return readerr
+			return diag.FromErr(readerr)
 		}
 
 		decodeerr := json.Unmarshal(body, &hook)
 		if decodeerr != nil {
-			return decodeerr
+			return diag.FromErr(decodeerr)
 		}
 
 		d.Set("uuid", hook.UUID)
@@ -173,12 +175,12 @@ func resourceWorkspaceHookRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceWorkspaceHookUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceWorkspaceHookUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	hook := createHook(d)
 	payload, err := json.Marshal(hook)
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = client.Put(fmt.Sprintf("2.0/workspaces/%s/hooks/%s",
@@ -187,19 +189,19 @@ func resourceWorkspaceHookUpdate(d *schema.ResourceData, m interface{}) error {
 	), bytes.NewBuffer(payload))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	return resourceWorkspaceHookRead(d, m)
+	return resourceWorkspaceHookRead(ctx, d, m)
 }
 
-func resourceWorkspaceHookDelete(d *schema.ResourceData, m interface{}) error {
+func resourceWorkspaceHookDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	_, err := client.Delete(fmt.Sprintf("2.0/workspaces/%s/hooks/%s",
 		d.Get("workspace").(string),
 		url.PathEscape(d.Id()),
 	))
 
-	return err
+	return diag.FromErr(err)
 
 }

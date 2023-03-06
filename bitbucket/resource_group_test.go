@@ -3,7 +3,7 @@ package bitbucket
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -76,7 +76,7 @@ func testAccCheckBitbucketGroupDestroy(s *terraform.State) error {
 		}
 
 		var group *UserGroup
-		body, readerr := ioutil.ReadAll(response.Body)
+		body, readerr := io.ReadAll(response.Body)
 		if readerr != nil {
 			return readerr
 		}

@@ -3,10 +3,10 @@ layout: "bitbucket"
 page_title: "Bitbucket: bitbucket_current_user"
 sidebar_current: "docs-bitbucket-data-current-user"
 description: |-
-  Provides a data for the current Bitbucket user
+  Provides data for the current Bitbucket user
 ---
 
-# bitbucket\_user
+# bitbucket\_current\_user
 
 Provides a way to fetch data of the current user.
 
@@ -15,7 +15,7 @@ OAuth2 Scopes: `account`
 ## Example Usage
 
 ```hcl
-data "bitbucket_currnet_user" "example" {}
+data "bitbucket_current_user" "example" {}
 ```
 
 ## Argument Reference

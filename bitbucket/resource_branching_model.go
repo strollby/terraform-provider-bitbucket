@@ -2,13 +2,15 @@ package bitbucket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -21,11 +23,11 @@ type BranchingModel struct {
 }
 
 type BranchModel struct {
-	IsValid            bool   `json:"is_valid,omitempty"`
-	Name               string `json:"name,omitempty"`
-	UseMainbranch      bool   `json:"use_mainbranch,omitempty"`
-	BranchDoesNotExist bool   `json:"branch_does_not_exist,omitempty"`
-	Enabled            bool   `json:"enabled,omitempty"`
+	IsValid            bool    `json:"is_valid,omitempty"`
+	Name               *string `json:"name"`
+	UseMainbranch      bool    `json:"use_mainbranch,omitempty"`
+	BranchDoesNotExist bool    `json:"branch_does_not_exist,omitempty"`
+	Enabled            bool    `json:"enabled,omitempty"`
 }
 
 type BranchType struct {
@@ -36,12 +38,12 @@ type BranchType struct {
 
 func resourceBranchingModel() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceBranchingModelsPut,
-		Read:   resourceBranchingModelsRead,
-		Update: resourceBranchingModelsPut,
-		Delete: resourceBranchingModelsDelete,
+		CreateWithoutTimeout: resourceBranchingModelsPut,
+		ReadWithoutTimeout:   resourceBranchingModelsRead,
+		UpdateWithoutTimeout: resourceBranchingModelsPut,
+		DeleteWithoutTimeout: resourceBranchingModelsDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -137,7 +139,7 @@ func resourceBranchingModel() *schema.Resource {
 	}
 }
 
-func resourceBranchingModelsPut(d *schema.ResourceData, m interface{}) error {
+func resourceBranchingModelsPut(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	branchingModel := expandBranchingModel(d)
 
@@ -145,7 +147,7 @@ func resourceBranchingModelsPut(d *schema.ResourceData, m interface{}) error {
 	bytedata, err := json.Marshal(branchingModel)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	branchingModelReq, err := client.Put(fmt.Sprintf("2.0/repositories/%s/%s/branching-model/settings",
@@ -154,30 +156,30 @@ func resourceBranchingModelsPut(d *schema.ResourceData, m interface{}) error {
 	), bytes.NewBuffer(bytedata))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	body, readerr := ioutil.ReadAll(branchingModelReq.Body)
+	body, readerr := io.ReadAll(branchingModelReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	decodeerr := json.Unmarshal(body, &branchingModel)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), d.Get("repository").(string))))
 
-	return resourceBranchingModelsRead(d, m)
+	return resourceBranchingModelsRead(ctx, d, m)
 }
 
-func resourceBranchingModelsRead(d *schema.ResourceData, m interface{}) error {
+func resourceBranchingModelsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	owner, repo, err := branchingModelId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	branchingModelsReq, _ := client.Get(fmt.Sprintf("2.0/repositories/%s/%s/branching-model", owner, repo))
 
@@ -188,20 +190,20 @@ func resourceBranchingModelsRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if branchingModelsReq.Body == nil {
-		return fmt.Errorf("error getting Branching Model (%s): empty response", d.Id())
+		return diag.Errorf("error getting Branching Model (%s): empty response", d.Id())
 	}
 
 	var branchingModel *BranchingModel
-	body, readerr := ioutil.ReadAll(branchingModelsReq.Body)
+	body, readerr := io.ReadAll(branchingModelsReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Branching Model Response JSON: %v", string(body))
 
 	decodeerr := json.Unmarshal(body, &branchingModel)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Branching Model Response Decoded: %#v", branchingModel)
@@ -215,21 +217,21 @@ func resourceBranchingModelsRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceBranchingModelsDelete(d *schema.ResourceData, m interface{}) error {
+func resourceBranchingModelsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	owner, repo, err := branchingModelId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/branching-model/settings", owner, repo), nil)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	return err
+	return diag.FromErr(err)
 }
 
 func expandBranchingModel(d *schema.ResourceData) *BranchingModel {
@@ -266,7 +268,11 @@ func expandBranchModel(l []interface{}) *BranchModel {
 	rp := &BranchModel{}
 
 	if v, ok := tfMap["name"].(string); ok {
-		rp.Name = v
+		if v == "" {
+			rp.Name = nil
+		} else {
+			rp.Name = &v
+		}
 	}
 
 	if v, ok := tfMap["enabled"].(bool); ok {

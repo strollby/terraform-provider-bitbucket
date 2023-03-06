@@ -1,12 +1,12 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
-	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -25,7 +25,7 @@ type UserEmail struct {
 
 func dataCurrentUser() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadCurrentUser,
+		ReadWithoutTimeout: dataReadCurrentUser,
 
 		Schema: map[string]*schema.Schema{
 			"username": {
@@ -64,34 +64,26 @@ func dataCurrentUser() *schema.Resource {
 	}
 }
 
-func dataReadCurrentUser(d *schema.ResourceData, m interface{}) error {
+func dataReadCurrentUser(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	httpClient := m.(Clients).httpClient
 	usersApi := c.ApiClient.UsersApi
 
-	curUser, curUserRes, err := usersApi.UserGet(c.AuthContext)
-	if err != nil {
-		return fmt.Errorf("error reading current user: %w", err)
-	}
-
-	if curUserRes.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("user not found")
-	}
-
-	if curUserRes.StatusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("internal server error fetching user")
+	curUser, _, err := usersApi.UserGet(c.AuthContext)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	log.Printf("[DEBUG] Current User: %#v", curUser)
 
 	curUserEmails, err := httpClient.Get("2.0/user/emails")
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	emailBody, readerr := ioutil.ReadAll(curUserEmails.Body)
+	emailBody, readerr := io.ReadAll(curUserEmails.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Current User Emails Response JSON: %v", string(emailBody))
@@ -100,7 +92,7 @@ func dataReadCurrentUser(d *schema.ResourceData, m interface{}) error {
 
 	decodeerr := json.Unmarshal(emailBody, &emails)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Current User Emails Response Decoded: %#v", emails)

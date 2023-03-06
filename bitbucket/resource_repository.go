@@ -1,13 +1,18 @@
 package bitbucket
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/antihax/optional"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/strollby/bitbucket-go-client"
@@ -15,12 +20,12 @@ import (
 
 func resourceRepository() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceRepositoryCreate,
-		Update: resourceRepositoryUpdate,
-		Read:   resourceRepositoryRead,
-		Delete: resourceRepositoryDelete,
+		CreateWithoutTimeout: resourceRepositoryCreate,
+		UpdateWithoutTimeout: resourceRepositoryUpdate,
+		ReadWithoutTimeout:   resourceRepositoryRead,
+		DeleteWithoutTimeout: resourceRepositoryDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 		Schema: map[string]*schema.Schema{
 			"scm": {
@@ -126,8 +131,23 @@ func resourceRepository() *schema.Resource {
 					},
 				},
 			},
+			"inherit_default_merge_strategy": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+			},
+			"inherit_branching_model": {
+				Type:     schema.TypeBool,
+				Optional: true,
+				Computed: true,
+			},
 		},
 	}
+}
+
+type RepositoryInheritanceSettings struct {
+	DefaultMergeStrategy *bool `json:"default_merge_strategy,omitempty"`
+	BranchingModel       *bool `json:"branching_model,omitempty"`
 }
 
 func newRepositoryFromResource(d *schema.ResourceData) *bitbucket.Repository {
@@ -156,12 +176,11 @@ func newRepositoryFromResource(d *schema.ResourceData) *bitbucket.Repository {
 	return repo
 }
 
-func resourceRepositoryUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
-
-	repository := newRepositoryFromResource(d)
+	client := m.(Clients).httpClient
 
 	var repoSlug string
 	repoSlug = d.Get("slug").(string)
@@ -169,33 +188,63 @@ func resourceRepositoryUpdate(d *schema.ResourceData, m interface{}) error {
 		repoSlug = d.Get("name").(string)
 	}
 	repoSlug = computeSlug(repoSlug)
-	repoBody := &bitbucket.RepositoriesApiRepositoriesWorkspaceRepoSlugPutOpts{
-		Body: optional.NewInterface(repository),
-	}
-
 	workspace := d.Get("owner").(string)
-	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
 
-	if err != nil {
-		return fmt.Errorf("error updating repository (%s): %w", repoSlug, err)
+	if d.HasChangesExcept("pipelines_enabled", "inherit_default_merge_strategy", "inherit_branching_model") {
+		repository := newRepositoryFromResource(d)
+
+		repoBody := &bitbucket.RepositoriesApiRepositoriesWorkspaceRepoSlugPutOpts{
+			Body: optional.NewInterface(repository),
+		}
+		_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
+		}
 	}
 
-	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
-	pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: pipelinesEnabled}
+	if d.HasChange("pipelines_enabled") {
+		// nolint:staticcheck
+		if v, ok := d.GetOkExists("pipelines_enabled"); ok {
+			pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
-	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-
-	if err != nil {
-		return fmt.Errorf("error enabling pipeline for repository (%s): %w", repoSlug, err)
+			_, _, err := pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
+			if err := handleClientError(err); err != nil {
+				return diag.FromErr(err)
+			}
+		}
 	}
 
-	return resourceRepositoryRead(d, m)
+	if d.HasChanges("inherit_default_merge_strategy", "inherit_branching_model") {
+		setting := createRepositoryInheritanceSettings(d)
+
+		log.Printf("Repository Inheritance Settings update is: %#v", setting)
+
+		payload, err := json.Marshal(setting)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		log.Printf("Repository Inheritance Settings update encoded is: %v", string(payload))
+
+		_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+			workspace,
+			repoSlug,
+		), bytes.NewBuffer(payload))
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	return resourceRepositoryRead(ctx, d, m)
 }
 
-func resourceRepositoryCreate(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 	pipeApi := c.ApiClient.PipelinesApi
+	client := m.(Clients).httpClient
+
 	repo := newRepositoryFromResource(d)
 
 	var repoSlug string
@@ -212,52 +261,66 @@ func resourceRepositoryCreate(d *schema.ResourceData, m interface{}) error {
 	}
 
 	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPost(c.AuthContext, repoSlug, workspace, repoBody)
-	if err != nil {
-		return fmt.Errorf("error creating repository (%s): %w", repoSlug, err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", d.Get("owner").(string), repoSlug)))
 
-	pipelinesEnabled := d.Get("pipelines_enabled").(bool)
-	pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: pipelinesEnabled}
+	// nolint:staticcheck
+	if v, ok := d.GetOkExists("pipelines_enabled"); ok {
+		pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
-	_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-
-	if err != nil {
-		return fmt.Errorf("error enabling pipeline for repository (%s): %w", repoSlug, err)
-	}
-
-	return resourceRepositoryRead(d, m)
-}
-
-func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
-	id := d.Id()
-	if id != "" {
-		idparts := strings.Split(id, "/")
-		if len(idparts) == 2 {
-			d.Set("owner", idparts[0])
-			d.Set("slug", idparts[1])
-		} else {
-			return fmt.Errorf("incorrect ID format, should match `owner/slug`")
+		_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
 		}
 	}
 
-	var repoSlug string
-	repoSlug = d.Get("slug").(string)
+	// nolint:staticcheck
+	_, branchOk := d.GetOkExists("inherit_branching_model")
+	// nolint:staticcheck
+	_, mergeStratOk := d.GetOkExists("inherit_default_merge_strategy")
+
+	if mergeStratOk || branchOk {
+		setting := createRepositoryInheritanceSettings(d)
+
+		payload, err := json.Marshal(setting)
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+		_, err = client.Put(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+			workspace,
+			repoSlug,
+		), bytes.NewBuffer(payload))
+
+		if err != nil {
+			return diag.FromErr(err)
+		}
+
+	}
+
+	return resourceRepositoryRead(ctx, d, m)
+}
+
+func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
+	c := m.(Clients).genClient
+	repoApi := c.ApiClient.RepositoriesApi
+	pipeApi := c.ApiClient.PipelinesApi
+	client := m.(Clients).httpClient
+
+	workspace, repoSlug, err := repositoryId(d.Id())
+	if err != nil {
+		diag.FromErr(err)
+	}
+
 	if repoSlug == "" {
 		repoSlug = d.Get("name").(string)
 	}
 	repoSlug = computeSlug(repoSlug)
 
-	workspace := d.Get("owner").(string)
-	c := m.(Clients).genClient
-	repoApi := c.ApiClient.RepositoriesApi
-	pipeApi := c.ApiClient.PipelinesApi
-
 	repoRes, res, err := repoApi.RepositoriesWorkspaceRepoSlugGet(c.AuthContext, repoSlug, workspace)
-	if err != nil {
-		return fmt.Errorf("error reading repository (%s): %w", d.Id(), err)
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Repository (%s) not found, removing from state", d.Id())
@@ -265,12 +328,17 @@ func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
 		return nil
 	}
 
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
+	}
+
+	d.Set("owner", workspace)
 	d.Set("scm", repoRes.Scm)
 	d.Set("is_private", repoRes.IsPrivate)
 	d.Set("has_wiki", repoRes.HasWiki)
 	d.Set("has_issues", repoRes.HasIssues)
 	d.Set("name", repoRes.Name)
-	d.Set("slug", repoRes.Name)
+	d.Set("slug", repoRes.Slug)
 	d.Set("language", repoRes.Language)
 	d.Set("fork_policy", repoRes.ForkPolicy)
 	// d.Set("website", repoRes.Website)
@@ -289,9 +357,8 @@ func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
 	d.Set("link", flattenLinks(repoRes.Links))
 
 	pipelinesConfigReq, res, err := pipeApi.GetRepositoryPipelineConfig(c.AuthContext, workspace, repoSlug)
-
-	if err != nil && res.StatusCode != http.StatusNotFound {
-		return err
+	if err := handleClientError(err); err != nil && res.StatusCode != http.StatusNotFound {
+		return diag.FromErr(err)
 	}
 
 	if res.StatusCode == 200 {
@@ -300,10 +367,38 @@ func resourceRepositoryRead(d *schema.ResourceData, m interface{}) error {
 		d.Set("pipelines_enabled", false)
 	}
 
+	settingReq, err := client.Get(fmt.Sprintf("2.0/repositories/%s/%s/override-settings",
+		workspace,
+		repoSlug,
+	))
+
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	var setting RepositoryInheritanceSettings
+
+	body, readerr := io.ReadAll(settingReq.Body)
+	if readerr != nil {
+		return diag.FromErr(readerr)
+	}
+
+	log.Printf("Repository Inheritance Settings raw is: %#v", string(body))
+
+	decodeerr := json.Unmarshal(body, &setting)
+	if decodeerr != nil {
+		return diag.FromErr(decodeerr)
+	}
+
+	log.Printf("Repository Inheritance Settings decoded is: %#v", setting)
+
+	d.Set("inherit_default_merge_strategy", setting.DefaultMergeStrategy)
+	d.Set("inherit_branching_model", setting.BranchingModel)
+
 	return nil
 }
 
-func resourceRepositoryDelete(d *schema.ResourceData, m interface{}) error {
+func resourceRepositoryDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	var repoSlug string
 	repoSlug = d.Get("slug").(string)
@@ -314,22 +409,40 @@ func resourceRepositoryDelete(d *schema.ResourceData, m interface{}) error {
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 
-	res, err := repoApi.RepositoriesWorkspaceRepoSlugDelete(c.AuthContext, repoSlug, d.Get("owner").(string), nil)
-	if err != nil {
-		if res.StatusCode == http.StatusNotFound {
-			return nil
-		}
-		return fmt.Errorf("error deleting repository (%s): %w", d.Id(), err)
+	_, err := repoApi.RepositoriesWorkspaceRepoSlugDelete(c.AuthContext, repoSlug, d.Get("owner").(string), nil)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return nil
 }
 
-var slugForbiddenCharacters *regexp.Regexp = regexp.MustCompile(`[\W-]`)
+// See https://confluence.atlassian.com/bbkb/what-is-a-repository-slug-1168845069.html
+// Allows ASCII alphanumeric characters, underscores (_), en dashes (-), and periods (.) in repository slugs.
+var slugForbiddenCharacters = regexp.MustCompile(`[^a-zA-Z0-9_.-]`)
+
+// Limited to 62 characters.
+var slugMaxCharacters = 62
+
+// Can only end with an en dash if the entire repository slug is made up of en dashes (-).
+var slugEnDashRightCharacters = regexp.MustCompile(`([^-])-+$`)
+
+// A repository slug can also start with an en dash (-) if the entire repository slug is made up of en dashes.
+var slugEnDashLeftCharacters = regexp.MustCompile(`^-+([^-])`)
+
+// Does not allow consecutive en dashes (-) to be used in a repository slug unless the entire slug is made up of en dashes.
+var slugEnDashConsecutive = regexp.MustCompile(`--+([^-])`)
 
 func computeSlug(repoName string) string {
-	slug := slugForbiddenCharacters.ReplaceAllString(repoName, "-")
-	return strings.ToLower(slug)
+	slugTruncated := repoName
+	if len(repoName) > slugMaxCharacters && strings.Contains(repoName, "-") {
+		slugTruncated = repoName[:strings.LastIndex(repoName, "-")+1]
+	}
+	slugNormalized := slugForbiddenCharacters.ReplaceAllString(slugTruncated, "-")
+	slugLeftDashNormalized := slugEnDashLeftCharacters.ReplaceAllString(slugNormalized, "$1")
+	slugRightDashNormalized := slugEnDashRightCharacters.ReplaceAllString(slugLeftDashNormalized, "$1")
+	slugEnDashConsecutiveNormalized := slugEnDashConsecutive.ReplaceAllString(slugRightDashNormalized, "-$1")
+	return strings.ToLower(slugEnDashConsecutiveNormalized)
 }
 
 func splitFullName(repoFullName string) (string, string, error) {
@@ -393,4 +506,33 @@ func flattenLink(rp *bitbucket.Link) []interface{} {
 	}
 
 	return []interface{}{m}
+}
+
+func createRepositoryInheritanceSettings(d *schema.ResourceData) *RepositoryInheritanceSettings {
+
+	setting := &RepositoryInheritanceSettings{}
+
+	// nolint:staticcheck
+	if v, ok := d.GetOkExists("inherit_branching_model"); ok {
+		model := v.(bool)
+		setting.BranchingModel = &model
+	}
+
+	// nolint:staticcheck
+	if v, ok := d.GetOkExists("inherit_default_merge_strategy"); ok {
+		strat := v.(bool)
+		setting.DefaultMergeStrategy = &strat
+	}
+
+	return setting
+}
+
+func repositoryId(id string) (string, string, error) {
+	parts := strings.Split(id, "/")
+
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("unexpected format of ID (%q), expected WORKSPACE:REPO-SLUG", id)
+	}
+
+	return parts[0], parts[1], nil
 }

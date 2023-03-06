@@ -2,34 +2,53 @@ package bitbucket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
-	"net/url"
+	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
 
 // Deployment structure for handling key info
 type Deployment struct {
-	Name  string `json:"name"`
-	Stage *Stage `json:"environment_type"`
-	UUID  string `json:"uuid,omitempty"`
+	Name         string        `json:"name"`
+	Stage        *Stage        `json:"environment_type"`
+	UUID         string        `json:"uuid,omitempty"`
+	Restrictions *Restrictions `json:"restrictions,omitempty"`
 }
 
 type Stage struct {
 	Name string `json:"name"`
 }
 
+type Restrictions struct {
+	AdminOnly bool `json:"admin_only"`
+}
+
+type Changes struct {
+	Change *Change `json:"change"`
+}
+
+type Change struct {
+	Name         string       `json:"name,omitempty"`
+	Restrictions Restrictions `json:"restrictions,omitempty"`
+}
+
 func resourceDeployment() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceDeploymentCreate,
-		Update: resourceDeploymentUpdate,
-		Read:   resourceDeploymentRead,
-		Delete: resourceDeploymentDelete,
+		CreateWithoutTimeout: resourceDeploymentCreate,
+		UpdateWithoutTimeout: resourceDeploymentUpdate,
+		ReadWithoutTimeout:   resourceDeploymentRead,
+		DeleteWithoutTimeout: resourceDeploymentDelete,
+		Importer: &schema.ResourceImporter{
+			StateContext: schema.ImportStatePassthroughContext,
+		},
 
 		Schema: map[string]*schema.Schema{
 			"uuid": {
@@ -43,6 +62,7 @@ func resourceDeployment() *schema.Resource {
 			"stage": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
 				ValidateFunc: validation.StringInSlice([]string{
 					"Test",
 					"Staging",
@@ -53,6 +73,22 @@ func resourceDeployment() *schema.Resource {
 			"repository": {
 				Type:     schema.TypeString,
 				Required: true,
+				ForceNew: true,
+			},
+			"restrictions": {
+				Type:     schema.TypeList,
+				Optional: true,
+				Computed: true,
+				MaxItems: 1,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"admin_only": {
+							Type:     schema.TypeBool,
+							Optional: true,
+							Default:  false,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -65,107 +101,181 @@ func newDeploymentFromResource(d *schema.ResourceData) *Deployment {
 			Name: d.Get("stage").(string),
 		},
 	}
+
+	if v, ok := d.GetOk("restrictions"); ok {
+		rest := expandRestrictions(v.([]interface{}))
+		dk.Restrictions = &rest
+	}
+
 	return dk
 }
 
-func resourceDeploymentCreate(d *schema.ResourceData, m interface{}) error {
+func resourceDeploymentCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
 	client := m.(Clients).httpClient
 	rvcr := newDeploymentFromResource(d)
 	bytedata, err := json.Marshal(rvcr)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	req, err := client.Post(fmt.Sprintf("2.0/repositories/%s/environments/",
 		d.Get("repository").(string),
 	), bytes.NewBuffer(bytedata))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	var deployment Deployment
 
-	body, readerr := ioutil.ReadAll(req.Body)
+	body, readerr := io.ReadAll(req.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
+
+	log.Printf("[DEBUG] deployment create res raw: %v", string(body))
 
 	decodeerr := json.Unmarshal(body, &deployment)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
+
+	log.Printf("[DEBUG] deployment create res decoded: %#v", deployment)
+
 	d.Set("uuid", deployment.UUID)
 	d.SetId(fmt.Sprintf("%s:%s", d.Get("repository"), deployment.UUID))
 
-	return resourceDeploymentRead(d, m)
+	return resourceDeploymentRead(ctx, d, m)
 }
 
-func resourceDeploymentRead(d *schema.ResourceData, m interface{}) error {
+func resourceDeploymentRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 
-	client := m.(Clients).httpClient
-	req, _ := client.Get(fmt.Sprintf("2.0/repositories/%s/environments/%s",
-		d.Get("repository").(string),
-		d.Get("uuid").(string),
-	))
-
-	log.Printf("ID: %s", url.PathEscape(d.Id()))
-
-	if req.StatusCode == 200 {
-		var Deployment Deployment
-		body, readerr := ioutil.ReadAll(req.Body)
-		if readerr != nil {
-			return readerr
-		}
-
-		decodeerr := json.Unmarshal(body, &Deployment)
-		if decodeerr != nil {
-			return decodeerr
-		}
-
-		d.Set("uuid", Deployment.UUID)
-		d.Set("name", Deployment.Name)
-		d.Set("stage", Deployment.Stage.Name)
+	repoId, deployId, err := deploymentId(d.Id())
+	if err != nil {
+		return diag.FromErr(err)
 	}
 
-	if req.StatusCode == http.StatusNotFound {
+	client := m.(Clients).httpClient
+	res, err := client.Get(fmt.Sprintf("2.0/repositories/%s/environments/%s",
+		repoId,
+		deployId,
+	))
+
+	if res != nil && res.StatusCode == http.StatusNotFound {
+		log.Printf("[WARN] Deployment (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return nil
 	}
 
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	var deploy Deployment
+	body, readerr := io.ReadAll(res.Body)
+	if readerr != nil {
+		return diag.FromErr(readerr)
+	}
+
+	log.Printf("[DEBUG] deployment response raw: %s", string(body))
+
+	decodeerr := json.Unmarshal(body, &deploy)
+	if decodeerr != nil {
+		return diag.FromErr(decodeerr)
+	}
+
+	log.Printf("[DEBUG] deployment response decoded: %#v", deploy)
+
+	d.Set("uuid", deploy.UUID)
+	d.Set("name", deploy.Name)
+	d.Set("stage", deploy.Stage.Name)
+	d.Set("repository", repoId)
+	d.Set("restrictions", flattenRestrictions(deploy.Restrictions))
+
 	return nil
 }
 
-func resourceDeploymentUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceDeploymentUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
-	rvcr := newDeploymentFromResource(d)
+
+	rvcr := &Changes{
+		Change: &Change{},
+	}
+
+	if d.HasChange("name") {
+		rvcr.Change.Name = d.Get("name").(string)
+	}
+
+	if d.HasChange("restrictions") {
+		rvcr.Change.Restrictions = expandRestrictions(d.Get("restrictions").([]interface{}))
+	}
+
+	log.Printf("[DEBUG] deployment update req: %#v", rvcr)
+
 	bytedata, err := json.Marshal(rvcr)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
-	req, err := client.Put(fmt.Sprintf("2.0/repositories/%s/environments/%s",
+
+	log.Printf("[DEBUG] deployment update req encoded: %v", string(bytedata))
+
+	req, err := client.Post(fmt.Sprintf("2.0/repositories/%s/environments/%s/changes/",
 		d.Get("repository").(string),
 		d.Get("uuid").(string),
 	), bytes.NewBuffer(bytedata))
 
+	log.Printf("[DEBUG] deployment update res: %#v", req)
+
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	if req.StatusCode != 200 {
 		return nil
 	}
 
-	return resourceDeploymentRead(d, m)
+	return resourceDeploymentRead(ctx, d, m)
 }
 
-func resourceDeploymentDelete(d *schema.ResourceData, m interface{}) error {
+func resourceDeploymentDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 	_, err := client.Delete(fmt.Sprintf("2.0/repositories/%s/environments/%s",
 		d.Get("repository").(string),
 		d.Get("uuid").(string),
 	))
-	return err
+	return diag.FromErr(err)
+}
+
+func expandRestrictions(conf []interface{}) Restrictions {
+	tfMap, _ := conf[0].(map[string]interface{})
+
+	target := Restrictions{
+		AdminOnly: tfMap["admin_only"].(bool),
+	}
+
+	return target
+}
+
+func flattenRestrictions(rp *Restrictions) []interface{} {
+	if rp == nil {
+		return []interface{}{}
+	}
+
+	m := map[string]interface{}{
+		"admin_only": rp.AdminOnly,
+	}
+
+	return []interface{}{m}
+}
+
+func deploymentId(id string) (string, string, error) {
+	parts := strings.Split(id, ":")
+
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("unexpected format of ID (%q), expected REPO-ID:DEPLOYMENT-UUID", id)
+	}
+
+	return parts[0], parts[1], nil
 }

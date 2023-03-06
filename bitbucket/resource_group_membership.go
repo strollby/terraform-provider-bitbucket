@@ -1,13 +1,15 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
@@ -17,11 +19,11 @@ type UserGroupMembership struct {
 
 func resourceGroupMembership() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceGroupMembershipsPut,
-		Read:   resourceGroupMembershipsRead,
-		Delete: resourceGroupMembershipsDelete,
+		CreateWithoutTimeout: resourceGroupMembershipsPut,
+		ReadWithoutTimeout:   resourceGroupMembershipsRead,
+		DeleteWithoutTimeout: resourceGroupMembershipsDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -48,7 +50,7 @@ func resourceGroupMembership() *schema.Resource {
 	}
 }
 
-func resourceGroupMembershipsPut(d *schema.ResourceData, m interface{}) error {
+func resourceGroupMembershipsPut(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace := d.Get("workspace").(string)
@@ -58,20 +60,20 @@ func resourceGroupMembershipsPut(d *schema.ResourceData, m interface{}) error {
 	_, err := client.PutOnly(fmt.Sprintf("1.0/groups/%s/%s/members/%s",
 		workspace, groupSlug, uuid))
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, groupSlug, uuid)))
 
-	return resourceGroupMembershipsRead(d, m)
+	return resourceGroupMembershipsRead(ctx, d, m)
 }
 
-func resourceGroupMembershipsRead(d *schema.ResourceData, m interface{}) error {
+func resourceGroupMembershipsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace, slug, uuid, err := groupMemberId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	groupsReq, _ := client.Get(fmt.Sprintf("1.0/groups/%s/%s/members", workspace, slug))
@@ -83,27 +85,27 @@ func resourceGroupMembershipsRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if groupsReq.Body == nil {
-		return fmt.Errorf("error reading Group Membership (%s): empty response", d.Id())
+		return diag.Errorf("error reading Group Membership (%s): empty response", d.Id())
 	}
 
 	var members []*UserGroupMembership
 
-	body, readerr := ioutil.ReadAll(groupsReq.Body)
+	body, readerr := io.ReadAll(groupsReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Group Membership Response JSON: %v", string(body))
 
 	decodeerr := json.Unmarshal(body, &members)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Group Membership Response Decoded: %#v", members)
 
 	if len(members) == 0 {
-		return fmt.Errorf("error getting Group Members (%s): empty response", d.Id())
+		return diag.Errorf("error getting Group Members (%s): empty response", d.Id())
 	}
 
 	var member *UserGroupMembership
@@ -115,7 +117,7 @@ func resourceGroupMembershipsRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if member == nil {
-		return fmt.Errorf("error getting Group Member (%s): not found", d.Id())
+		return diag.Errorf("error getting Group Member (%s): not found", d.Id())
 	}
 
 	log.Printf("[DEBUG] Group Member Response Decoded: %#v", member)
@@ -127,22 +129,22 @@ func resourceGroupMembershipsRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceGroupMembershipsDelete(d *schema.ResourceData, m interface{}) error {
+func resourceGroupMembershipsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace, slug, uuid, err := groupMemberId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = client.Delete(fmt.Sprintf("1.0/groups/%s/%s/members/%s",
 		workspace, slug, uuid))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	return err
+	return diag.FromErr(err)
 }
 
 func groupMemberId(id string) (string, string, string, error) {

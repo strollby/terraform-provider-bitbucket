@@ -1,23 +1,25 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/strollby/bitbucket-go-client"
 )
 
 func resourcePipelineSshKey() *schema.Resource {
 	return &schema.Resource{
-		Create: resourcePipelineSshKeysPut,
-		Read:   resourcePipelineSshKeysRead,
-		Update: resourcePipelineSshKeysPut,
-		Delete: resourcePipelineSshKeysDelete,
+		CreateWithoutTimeout: resourcePipelineSshKeysPut,
+		ReadWithoutTimeout:   resourcePipelineSshKeysRead,
+		UpdateWithoutTimeout: resourcePipelineSshKeysPut,
+		DeleteWithoutTimeout: resourcePipelineSshKeysDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -43,7 +45,7 @@ func resourcePipelineSshKey() *schema.Resource {
 	}
 }
 
-func resourcePipelineSshKeysPut(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineSshKeysPut(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
@@ -53,29 +55,25 @@ func resourcePipelineSshKeysPut(d *schema.ResourceData, m interface{}) error {
 	repo := d.Get("repository").(string)
 	workspace := d.Get("workspace").(string)
 	_, _, err := pipeApi.UpdateRepositoryPipelineKeyPair(c.AuthContext, *pipeSshKey, workspace, repo)
-
-	if err != nil {
-		return fmt.Errorf("error creating pipeline ssh key: %w", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", workspace, repo)))
 
-	return resourcePipelineSshKeysRead(d, m)
+	return resourcePipelineSshKeysRead(ctx, d, m)
 }
 
-func resourcePipelineSshKeysRead(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineSshKeysRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	workspace, repo, err := pipeSshKeyId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	key, res, err := pipeApi.GetRepositoryPipelineSshKeyPair(c.AuthContext, workspace, repo)
-	if err != nil {
-		return fmt.Errorf("error reading Pipeline Ssh Key (%s): %w", d.Id(), err)
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Pipeline Ssh Key (%s) not found, removing from state", d.Id())
@@ -83,8 +81,8 @@ func resourcePipelineSshKeysRead(d *schema.ResourceData, m interface{}) error {
 		return nil
 	}
 
-	if res.Body == nil {
-		return fmt.Errorf("error getting Pipeline Ssh Key (%s): empty response", d.Id())
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("repository", repo)
@@ -95,22 +93,21 @@ func resourcePipelineSshKeysRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourcePipelineSshKeysDelete(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineSshKeysDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	workspace, repo, err := pipeSshKeyId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = pipeApi.DeleteRepositoryPipelineKeyPair(c.AuthContext, workspace, repo)
-
-	if err != nil {
-		return fmt.Errorf("error deleting Pipeline Ssh Key (%s): %w", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
-	return err
+	return diag.FromErr(err)
 }
 
 func expandPipelineSshKey(d *schema.ResourceData) *bitbucket.PipelineSshKeyPair {

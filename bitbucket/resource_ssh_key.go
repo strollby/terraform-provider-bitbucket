@@ -1,12 +1,14 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/antihax/optional"
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/strollby/bitbucket-go-client"
 )
@@ -22,12 +24,12 @@ type SshKey struct {
 
 func resourceSshKey() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceSshKeysCreate,
-		Read:   resourceSshKeysRead,
-		Update: resourceSshKeysUpdate,
-		Delete: resourceSshKeysDelete,
+		CreateWithoutTimeout: resourceSshKeysCreate,
+		ReadWithoutTimeout:   resourceSshKeysRead,
+		UpdateWithoutTimeout: resourceSshKeysUpdate,
+		DeleteWithoutTimeout: resourceSshKeysDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -57,7 +59,7 @@ func resourceSshKey() *schema.Resource {
 	}
 }
 
-func resourceSshKeysCreate(d *schema.ResourceData, m interface{}) error {
+func resourceSshKeysCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	sshApi := c.ApiClient.SshApi
 
@@ -69,28 +71,25 @@ func resourceSshKeysCreate(d *schema.ResourceData, m interface{}) error {
 
 	user := d.Get("user").(string)
 	sshKeyReq, _, err := sshApi.UsersSelectedUserSshKeysPost(c.AuthContext, user, sshKeyBody)
-	if err != nil {
-		return fmt.Errorf("error creating ssh key: %w", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s", user, sshKeyReq.Uuid)))
 
-	return resourceSshKeysRead(d, m)
+	return resourceSshKeysRead(ctx, d, m)
 }
 
-func resourceSshKeysRead(d *schema.ResourceData, m interface{}) error {
+func resourceSshKeysRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	sshApi := c.ApiClient.SshApi
 
 	user, keyId, err := sshKeyId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	sshKeyReq, res, err := sshApi.UsersSelectedUserSshKeysKeyIdGet(c.AuthContext, keyId, user)
-	if err != nil {
-		return fmt.Errorf("error reading ssh key (%s): %w", d.Id(), err)
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] SSH Key (%s) not found, removing from state", d.Id())
@@ -98,8 +97,12 @@ func resourceSshKeysRead(d *schema.ResourceData, m interface{}) error {
 		return nil
 	}
 
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
+	}
+
 	if res.Body == nil {
-		return fmt.Errorf("error getting SSH Key (%s): empty response", d.Id())
+		return diag.Errorf("error getting SSH Key (%s): empty response", d.Id())
 	}
 
 	d.Set("user", user)
@@ -111,7 +114,7 @@ func resourceSshKeysRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceSshKeysUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceSshKeysUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	sshApi := c.ApiClient.SshApi
 
@@ -123,32 +126,29 @@ func resourceSshKeysUpdate(d *schema.ResourceData, m interface{}) error {
 
 	user, keyId, err := sshKeyId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, _, err = sshApi.UsersSelectedUserSshKeysKeyIdPut(c.AuthContext, keyId, user, sshKeyBody)
-	if err != nil {
-		return fmt.Errorf("error updating ssh key (%s): %w", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
-	return resourceSshKeysRead(d, m)
+	return resourceSshKeysRead(ctx, d, m)
 }
 
-func resourceSshKeysDelete(d *schema.ResourceData, m interface{}) error {
+func resourceSshKeysDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	sshApi := c.ApiClient.SshApi
 
 	user, keyId, err := sshKeyId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	res, err := sshApi.UsersSelectedUserSshKeysKeyIdDelete(c.AuthContext, keyId, user)
-	if err != nil {
-		if res.StatusCode == http.StatusNotFound {
-			return nil
-		}
-		return fmt.Errorf("error deleting ssh key (%s): %w", d.Id(), err)
+	_, err = sshApi.UsersSelectedUserSshKeysKeyIdDelete(c.AuthContext, keyId, user)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	return nil

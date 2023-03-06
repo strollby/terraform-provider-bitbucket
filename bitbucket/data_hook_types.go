@@ -1,17 +1,18 @@
 package bitbucket
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"net/http"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/strollby/bitbucket-go-client"
 )
 
 func dataHookTypes() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadHookTypes,
+		ReadWithoutTimeout: dataReadHookTypes,
 
 		Schema: map[string]*schema.Schema{
 			"subject_type": {
@@ -46,22 +47,14 @@ func dataHookTypes() *schema.Resource {
 	}
 }
 
-func dataReadHookTypes(d *schema.ResourceData, m interface{}) error {
+func dataReadHookTypes(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	webhooksApi := c.ApiClient.WebhooksApi
 
 	subjectType := d.Get("subject_type").(string)
-	hookTypes, res, err := webhooksApi.HookEventsSubjectTypeGet(c.AuthContext, subjectType)
-	if err != nil {
-		return err
-	}
-
-	if res.StatusCode == http.StatusNotFound {
-		return fmt.Errorf("user not found")
-	}
-
-	if res.StatusCode >= http.StatusInternalServerError {
-		return fmt.Errorf("internal server error fetching hook types")
+	hookTypes, _, err := webhooksApi.HookEventsSubjectTypeGet(c.AuthContext, subjectType)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(subjectType)

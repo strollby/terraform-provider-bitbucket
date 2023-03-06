@@ -28,7 +28,7 @@ resource "bitbucket_deployment" "test" {
 }
 resource "bitbucket_deployment_variable" "country" {
   deployment = bitbucket_deployment.test.id
-  name       = "COUNTRY"
+  key        = "COUNTRY"
   value      = "Kenya"
   secured    = false
 }
@@ -37,7 +37,18 @@ resource "bitbucket_deployment_variable" "country" {
 ## Argument Reference
 
 * `deployment` - (Required) The deployment ID you want to assign this variable to.
-* `name` - (Required) The name of the variable
-* `value` - (Required) The stage (Test, Staging, Production)
-* `secured` - (Optional) Boolean indicating whether the variable contains sensitive data
-* `uuid` - (Computed) The UUID of the variable
+* `key` - (Required) The unique name of the variable.
+* `value` - (Required) The value of the variable.
+* `secured` - (Optional)  If true, this variable will be treated as secured. The value will never be exposed in the logs or the REST API.
+
+## Attributes Reference
+
+* `uuid` - (Computed) The UUID identifying the variable.
+
+## Import
+
+Deployment Variables can be imported using their `deployment-id/uuid` ID, e.g.
+
+```sh
+terraform import bitbucket_deployment_variable.example deployment-id/uuid
+```

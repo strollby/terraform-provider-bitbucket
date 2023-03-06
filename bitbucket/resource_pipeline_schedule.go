@@ -1,11 +1,13 @@
 package bitbucket
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 	"github.com/strollby/bitbucket-go-client"
@@ -13,12 +15,12 @@ import (
 
 func resourcePipelineSchedule() *schema.Resource {
 	return &schema.Resource{
-		Create: resourcePipelineScheduleCreate,
-		Read:   resourcePipelineScheduleRead,
-		Update: resourcePipelineScheduleUpdate,
-		Delete: resourcePipelineScheduleDelete,
+		CreateWithoutTimeout: resourcePipelineScheduleCreate,
+		ReadWithoutTimeout:   resourcePipelineScheduleRead,
+		UpdateWithoutTimeout: resourcePipelineScheduleUpdate,
+		DeleteWithoutTimeout: resourcePipelineScheduleDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -66,6 +68,12 @@ func resourcePipelineSchedule() *schema.Resource {
 							MaxItems: 1,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
+									"type": {
+										Type:     schema.TypeString,
+										Optional: true,
+										ForceNew: true,
+										Default:  "branches",
+									},
 									"pattern": {
 										Type:     schema.TypeString,
 										Required: true,
@@ -85,7 +93,7 @@ func resourcePipelineSchedule() *schema.Resource {
 	}
 }
 
-func resourcePipelineScheduleCreate(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineScheduleCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
@@ -95,49 +103,51 @@ func resourcePipelineScheduleCreate(d *schema.ResourceData, m interface{}) error
 	repo := d.Get("repository").(string)
 	workspace := d.Get("workspace").(string)
 	schedule, _, err := pipeApi.CreateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo)
-
-	if err != nil {
-		return fmt.Errorf("error creating pipeline schedule: %w", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repo, schedule.Uuid)))
 
-	return resourcePipelineScheduleRead(d, m)
+	if !d.Get("enabled").(bool) {
+		_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, schedule.Uuid)
+		if err := handleClientError(err); err != nil {
+			return diag.FromErr(err)
+		}
+	}
+
+	return resourcePipelineScheduleRead(ctx, d, m)
 }
 
-func resourcePipelineScheduleUpdate(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineScheduleUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	workspace, repo, uuid, err := pipeScheduleId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	pipeSchedule := expandPipelineSchedule(d)
 	log.Printf("[DEBUG] Pipeline Schedule Request: %#v", pipeSchedule)
 	_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, uuid)
-
-	if err != nil {
-		return fmt.Errorf("error updating pipeline schedule: %w", err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
-	return resourcePipelineScheduleRead(d, m)
+	return resourcePipelineScheduleRead(ctx, d, m)
 }
 
-func resourcePipelineScheduleRead(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineScheduleRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	workspace, repo, uuid, err := pipeScheduleId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	schedule, res, err := pipeApi.GetRepositoryPipelineSchedule(c.AuthContext, workspace, repo, uuid)
-	if err != nil {
-		return fmt.Errorf("error reading Pipeline Schedule (%s): %w", d.Id(), err)
-	}
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Pipeline Schedule (%s) not found, removing from state", d.Id())
@@ -145,8 +155,8 @@ func resourcePipelineScheduleRead(d *schema.ResourceData, m interface{}) error {
 		return nil
 	}
 
-	if res.Body == nil {
-		return fmt.Errorf("error getting Pipeline Schedule (%s): empty response", d.Id())
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
 	d.Set("repository", repo)
@@ -160,21 +170,20 @@ func resourcePipelineScheduleRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourcePipelineScheduleDelete(d *schema.ResourceData, m interface{}) error {
+func resourcePipelineScheduleDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
 	workspace, repo, uuid, err := pipeScheduleId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 	_, err = pipeApi.DeleteRepositoryPipelineSchedule(c.AuthContext, workspace, repo, uuid)
-
-	if err != nil {
-		return fmt.Errorf("error deleting Pipeline Schedule (%s): %w", d.Id(), err)
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
 	}
 
-	return err
+	return diag.FromErr(err)
 }
 
 func expandPipelineSchedule(d *schema.ResourceData) *bitbucket.PipelineSchedule {
@@ -205,7 +214,7 @@ func expandPipelineRefTargetSelector(conf []interface{}) *bitbucket.PipelineSele
 
 	selector := &bitbucket.PipelineSelector{
 		Pattern: tfMap["pattern"].(string),
-		Type_:   "branches",
+		Type_:   tfMap["type"].(string),
 	}
 
 	return selector
@@ -232,6 +241,7 @@ func flattenPipelineSelector(rp *bitbucket.PipelineSelector) []interface{} {
 
 	m := map[string]interface{}{
 		"pattern": rp.Pattern,
+		"type":    rp.Type_,
 	}
 
 	return []interface{}{m}

@@ -57,6 +57,8 @@ The following arguments are supported:
 * `description` - (Optional) What the description of the repo is.
 * `pipelines_enabled` - (Optional) Turn on to enable pipelines support.
 * `link` - (Optional) A set of links to a resource related to this object. See [Link](#link) Below.
+* `inherit_default_merge_strategy` - (Optional) Whether to inherit default merge strategy from project.
+* `inherit_branching_model` - (Optional) Whether to inherit branching model from project.
 
 ### Link
 

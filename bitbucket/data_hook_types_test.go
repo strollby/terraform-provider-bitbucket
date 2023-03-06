@@ -6,7 +6,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/resource"
 )
 
-func TestAccHookTypes_basic(t *testing.T) {
+func TestAccDataSourceHookTypes_basic(t *testing.T) {
 	dataSourceName := "data.bitbucket_hook_types.test"
 	resource.Test(t, resource.TestCase{
 		PreCheck:  func() { testAccPreCheck(t) },

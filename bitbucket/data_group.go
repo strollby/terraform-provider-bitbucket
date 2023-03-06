@@ -1,17 +1,19 @@
 package bitbucket
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
 
 func dataGroup() *schema.Resource {
 	return &schema.Resource{
-		Read: dataReadGroup,
+		ReadWithoutTimeout: dataReadGroup,
 
 		Schema: map[string]*schema.Schema{
 			"workspace": {
@@ -42,7 +44,7 @@ func dataGroup() *schema.Resource {
 	}
 }
 
-func dataReadGroup(d *schema.ResourceData, m interface{}) error {
+func dataReadGroup(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace := d.Get("workspace").(string)
@@ -51,21 +53,21 @@ func dataReadGroup(d *schema.ResourceData, m interface{}) error {
 	groupsReq, _ := client.Get(fmt.Sprintf("1.0/groups/%s/%s", workspace, slug))
 
 	if groupsReq.Body == nil {
-		return fmt.Errorf("error reading Group (%s): empty response", d.Id())
+		return diag.Errorf("error reading Group (%s): empty response", d.Id())
 	}
 
 	var grp *UserGroup
 
-	body, readerr := ioutil.ReadAll(groupsReq.Body)
+	body, readerr := io.ReadAll(groupsReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Group Response JSON: %v", string(body))
 
 	decodeerr := json.Unmarshal(body, &grp)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Group Response Decoded: %#v", grp)

@@ -2,13 +2,15 @@ package bitbucket
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/validation"
 )
@@ -23,12 +25,12 @@ type UserGroup struct {
 
 func resourceGroup() *schema.Resource {
 	return &schema.Resource{
-		Create: resourceGroupsCreate,
-		Read:   resourceGroupsRead,
-		Update: resourceGroupsUpdate,
-		Delete: resourceGroupsDelete,
+		CreateWithoutTimeout: resourceGroupsCreate,
+		ReadWithoutTimeout:   resourceGroupsRead,
+		UpdateWithoutTimeout: resourceGroupsUpdate,
+		DeleteWithoutTimeout: resourceGroupsDelete,
 		Importer: &schema.ResourceImporter{
-			State: schema.ImportStatePassthrough,
+			StateContext: schema.ImportStatePassthroughContext,
 		},
 
 		Schema: map[string]*schema.Schema{
@@ -62,7 +64,7 @@ func resourceGroup() *schema.Resource {
 	}
 }
 
-func resourceGroupsCreate(d *schema.ResourceData, m interface{}) error {
+func resourceGroupsCreate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	group := expandGroup(d)
@@ -72,34 +74,34 @@ func resourceGroupsCreate(d *schema.ResourceData, m interface{}) error {
 	body := []byte(fmt.Sprintf("name=%s", group.Name))
 	groupReq, err := client.PostNonJson(fmt.Sprintf("1.0/groups/%s", workspace), bytes.NewBuffer(body))
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	body, readerr := ioutil.ReadAll(groupReq.Body)
+	body, readerr := io.ReadAll(groupReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Group Req Response JSON: %v", string(body))
 
 	decodeerr := json.Unmarshal(body, &group)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Group Req Response Decoded: %#v", group)
 
 	d.SetId(string(fmt.Sprintf("%s/%s", workspace, group.Slug)))
 
-	return resourceGroupsRead(d, m)
+	return resourceGroupsRead(ctx, d, m)
 }
 
-func resourceGroupsRead(d *schema.ResourceData, m interface{}) error {
+func resourceGroupsRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace, slug, err := groupId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	groupsReq, _ := client.Get(fmt.Sprintf("1.0/groups/%s/%s", workspace, slug))
@@ -111,21 +113,21 @@ func resourceGroupsRead(d *schema.ResourceData, m interface{}) error {
 	}
 
 	if groupsReq.Body == nil {
-		return fmt.Errorf("error reading Group (%s): empty response", d.Id())
+		return diag.Errorf("error reading Group (%s): empty response", d.Id())
 	}
 
 	var grp *UserGroup
 
-	body, readerr := ioutil.ReadAll(groupsReq.Body)
+	body, readerr := io.ReadAll(groupsReq.Body)
 	if readerr != nil {
-		return readerr
+		return diag.FromErr(readerr)
 	}
 
 	log.Printf("[DEBUG] Groups Response JSON: %v", string(body))
 
 	decodeerr := json.Unmarshal(body, &grp)
 	if decodeerr != nil {
-		return decodeerr
+		return diag.FromErr(decodeerr)
 	}
 
 	log.Printf("[DEBUG] Groups Response Decoded: %#v", grp)
@@ -140,7 +142,7 @@ func resourceGroupsRead(d *schema.ResourceData, m interface{}) error {
 	return nil
 }
 
-func resourceGroupsUpdate(d *schema.ResourceData, m interface{}) error {
+func resourceGroupsUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	group := expandGroup(d)
@@ -148,34 +150,34 @@ func resourceGroupsUpdate(d *schema.ResourceData, m interface{}) error {
 	bytedata, err := json.Marshal(group)
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = client.Put(fmt.Sprintf("1.0/groups/%s/%s/",
 		d.Get("workspace").(string), d.Get("slug").(string)), bytes.NewBuffer(bytedata))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	return resourceGroupsRead(d, m)
+	return resourceGroupsRead(ctx, d, m)
 }
 
-func resourceGroupsDelete(d *schema.ResourceData, m interface{}) error {
+func resourceGroupsDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	client := m.(Clients).httpClient
 
 	workspace, slug, err := groupId(d.Id())
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
 	_, err = client.Delete(fmt.Sprintf("1.0/groups/%s/%s", workspace, slug))
 
 	if err != nil {
-		return err
+		return diag.FromErr(err)
 	}
 
-	return err
+	return diag.FromErr(err)
 }
 
 func expandGroup(d *schema.ResourceData) *UserGroup {
