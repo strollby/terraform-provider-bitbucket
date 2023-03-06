@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/strollby/bitbucket-go-client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 	oauth2bitbucket "golang.org/x/oauth2/bitbucket"
 	oauth2clientcreds "golang.org/x/oauth2/clientcredentials"

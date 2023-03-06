@@ -7,10 +7,10 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/DrFaust92/bitbucket-go-client"
 	"github.com/antihax/optional"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/strollby/bitbucket-go-client"
 )
 
 // sshKey is the data we need to send to create a new SSH Key for the repository

@@ -3,10 +3,11 @@ package bitbucket
 import (
 	"context"
 	"log"
+	"net/http"
 
-	"github.com/DrFaust92/bitbucket-go-client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
+	"github.com/strollby/bitbucket-go-client"
 )
 
 func dataHookTypes() *schema.Resource {
