@@ -70,6 +70,7 @@ func Provider() *schema.Provider {
 		ResourcesMap: map[string]*schema.Resource{
 			"bitbucket_branch_restriction":          resourceBranchRestriction(),
 			"bitbucket_branching_model":             resourceBranchingModel(),
+			"bitbucket_commit_file":                 resourceCommitFile(),
 			"bitbucket_default_reviewers":           resourceDefaultReviewers(),
 			"bitbucket_deploy_key":                  resourceDeployKey(),
 			"bitbucket_deployment":                  resourceDeployment(),
