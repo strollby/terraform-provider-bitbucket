@@ -83,17 +83,37 @@ func resourceCommitFilePut(ctx context.Context, d *schema.ResourceData, m interf
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 	part, _ := writer.CreateFormFile(filename, filename)
-	part.Write([]byte(content))
-	writer.Close()
+	_, err := part.Write([]byte(content))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	defer writer.Close()
 
-	messageFormField, _ := writer.CreateFormField("message")
-	messageFormField.Write([]byte(commitMessage))
+	messageFormField, err := writer.CreateFormField("message")
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	_, err = messageFormField.Write([]byte(commitMessage))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	authorFormField, err := writer.CreateFormField("author")
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	_, err = authorFormField.Write([]byte(commitAuthor))
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
-	authorFormField, _ := writer.CreateFormField("author")
-	authorFormField.Write([]byte(commitAuthor))
-
-	branchFormField, _ := writer.CreateFormField("branch")
-	branchFormField.Write([]byte(branch))
+	branchFormField, err := writer.CreateFormField("branch")
+	if err != nil {
+		return diag.FromErr(err)
+	}
+	_, err = branchFormField.Write([]byte(branch))
+	if err != nil {
+		return diag.FromErr(err)
+	}
 
 	response, err := client.PostWithContentType(fmt.Sprintf("2.0/repositories/%s/%s/src",
 		workspace,
