@@ -38,3 +38,4 @@ terraform-provider-bitbucket
 # Test exclusions
 !command/test-fixtures/**/*.tfstate
 !command/test-fixtures/**/.terraform/
+bitbucket/resource_commit_file_test.go

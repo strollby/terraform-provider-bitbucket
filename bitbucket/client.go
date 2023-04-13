@@ -125,7 +125,7 @@ func (c *Client) PostNonJson(endpoint string, payload *bytes.Buffer) (*http.Resp
 	return c.Do("POST", endpoint, payload, "")
 }
 
-// PostNonJson is just a helper method to do but with a POST verb without Json Header
+// PostWithContentType is just a helper method to do but with a POST verb and a provided content type
 func (c *Client) PostWithContentType(endpoint, contentType string, payload *bytes.Buffer) (*http.Response, error) {
 	return c.Do("POST", endpoint, payload, contentType)
 }
