@@ -128,7 +128,7 @@ func resourceCommitFilePut(ctx context.Context, d *schema.ResourceData, m interf
 		return diag.FromErr(fmt.Errorf(""))
 	}
 
-	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repoSlug, filename)))
+	d.SetId(string(fmt.Sprintf("%s/%s/%s/%s", workspace, repoSlug, branch, filename)))
 
 	location, _ := response.Location()
 	splitPath := strings.Split(location.Path, "/")
