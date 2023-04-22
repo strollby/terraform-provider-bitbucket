@@ -41,7 +41,7 @@ type Client struct {
 }
 
 // Do Will just call the bitbucket api but also add auth to it and some extra headers
-func (c *Client) Do(method, endpoint string, payload *bytes.Buffer, addJsonHeader bool) (*http.Response, error) {
+func (c *Client) Do(method, endpoint string, payload *bytes.Buffer, contentType string) (*http.Response, error) {
 	absoluteendpoint := BitbucketEndpoint + endpoint
 	log.Printf("[DEBUG] Sending request to %s %s", method, absoluteendpoint)
 
@@ -77,9 +77,9 @@ func (c *Client) Do(method, endpoint string, payload *bytes.Buffer, addJsonHeade
 		token.SetAuthHeader(req)
 	}
 
-	if payload != nil && addJsonHeader {
+	if payload != nil && contentType != "" {
 		// Can cause bad request when putting default reviews if set.
-		req.Header.Add("Content-Type", "application/json")
+		req.Header.Add("Content-Type", contentType)
 	}
 
 	req.Close = true
@@ -112,30 +112,35 @@ func (c *Client) Do(method, endpoint string, payload *bytes.Buffer, addJsonHeade
 
 // Get is just a helper method to do but with a GET verb
 func (c *Client) Get(endpoint string) (*http.Response, error) {
-	return c.Do("GET", endpoint, nil, true)
+	return c.Do("GET", endpoint, nil, "application/json")
 }
 
 // Post is just a helper method to do but with a POST verb
 func (c *Client) Post(endpoint string, jsonpayload *bytes.Buffer) (*http.Response, error) {
-	return c.Do("POST", endpoint, jsonpayload, true)
+	return c.Do("POST", endpoint, jsonpayload, "application/json")
 }
 
 // PostNonJson is just a helper method to do but with a POST verb without Json Header
-func (c *Client) PostNonJson(endpoint string, jsonpayload *bytes.Buffer) (*http.Response, error) {
-	return c.Do("POST", endpoint, jsonpayload, false)
+func (c *Client) PostNonJson(endpoint string, payload *bytes.Buffer) (*http.Response, error) {
+	return c.Do("POST", endpoint, payload, "")
+}
+
+// PostWithContentType is just a helper method to do but with a POST verb and a provided content type
+func (c *Client) PostWithContentType(endpoint, contentType string, payload *bytes.Buffer) (*http.Response, error) {
+	return c.Do("POST", endpoint, payload, contentType)
 }
 
 // Put is just a helper method to do but with a PUT verb
 func (c *Client) Put(endpoint string, jsonpayload *bytes.Buffer) (*http.Response, error) {
-	return c.Do("PUT", endpoint, jsonpayload, true)
+	return c.Do("PUT", endpoint, jsonpayload, "application/json")
 }
 
 // PutOnly is just a helper method to do but with a PUT verb and a nil body
 func (c *Client) PutOnly(endpoint string) (*http.Response, error) {
-	return c.Do("PUT", endpoint, nil, true)
+	return c.Do("PUT", endpoint, nil, "application/json")
 }
 
 // Delete is just a helper to Do but with a DELETE verb
 func (c *Client) Delete(endpoint string) (*http.Response, error) {
-	return c.Do("DELETE", endpoint, nil, true)
+	return c.Do("DELETE", endpoint, nil, "application/json")
 }
