@@ -97,7 +97,7 @@ func resourcePipelineScheduleCreate(ctx context.Context, d *schema.ResourceData,
 	c := m.(Clients).genClient
 	pipeApi := c.ApiClient.PipelinesApi
 
-	pipeSchedule := expandPipelineSchedule(d)
+	pipeSchedule := expandCreatePipelineSchedule(d)
 	log.Printf("[DEBUG] Pipeline Schedule Request: %#v", pipeSchedule)
 
 	repo := d.Get("repository").(string)
@@ -110,7 +110,8 @@ func resourcePipelineScheduleCreate(ctx context.Context, d *schema.ResourceData,
 	d.SetId(string(fmt.Sprintf("%s/%s/%s", workspace, repo, schedule.Uuid)))
 
 	if !d.Get("enabled").(bool) {
-		_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, schedule.Uuid)
+		pipeScheduleUpdate := expandUpdatePipelineSchedule(d)
+		_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeScheduleUpdate, workspace, repo, schedule.Uuid)
 		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
 		}
@@ -128,9 +129,9 @@ func resourcePipelineScheduleUpdate(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(err)
 	}
 
-	pipeSchedule := expandPipelineSchedule(d)
-	log.Printf("[DEBUG] Pipeline Schedule Request: %#v", pipeSchedule)
-	_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo, uuid)
+	pipeScheduleUpdate := expandUpdatePipelineSchedule(d)
+	log.Printf("[DEBUG] Pipeline Schedule Request: %#v", pipeScheduleUpdate)
+	_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeScheduleUpdate, workspace, repo, uuid)
 	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
 	}
@@ -186,8 +187,16 @@ func resourcePipelineScheduleDelete(ctx context.Context, d *schema.ResourceData,
 	return diag.FromErr(err)
 }
 
-func expandPipelineSchedule(d *schema.ResourceData) *bitbucket.PipelineSchedule {
-	schedule := &bitbucket.PipelineSchedule{
+func expandUpdatePipelineSchedule(d *schema.ResourceData) *bitbucket.PipelineSchedulePutRequestBody {
+	schedule := &bitbucket.PipelineSchedulePutRequestBody{
+		Enabled: d.Get("enabled").(bool),
+	}
+
+	return schedule
+}
+
+func expandCreatePipelineSchedule(d *schema.ResourceData) *bitbucket.PipelineSchedulePostRequestBody {
+	schedule := &bitbucket.PipelineSchedulePostRequestBody{
 		Enabled:     d.Get("enabled").(bool),
 		CronPattern: d.Get("cron_pattern").(string),
 		Target:      expandPipelineRefTarget(d.Get("target").([]interface{})),
@@ -196,10 +205,10 @@ func expandPipelineSchedule(d *schema.ResourceData) *bitbucket.PipelineSchedule 
 	return schedule
 }
 
-func expandPipelineRefTarget(conf []interface{}) *bitbucket.PipelineRefTarget {
+func expandPipelineRefTarget(conf []interface{}) *bitbucket.PipelineSchedulePostRequestBodyTarget {
 	tfMap, _ := conf[0].(map[string]interface{})
 
-	target := &bitbucket.PipelineRefTarget{
+	target := &bitbucket.PipelineSchedulePostRequestBodyTarget{
 		RefName:  tfMap["ref_name"].(string),
 		RefType:  tfMap["ref_type"].(string),
 		Selector: expandPipelineRefTargetSelector(tfMap["selector"].([]interface{})),
