@@ -19,7 +19,7 @@ OAuth2 Scopes: `none`
 resource "bitbucket_repository" "monorepo" {
   owner            = "gob"
   name             = "illusions"
-  pipelines_enable = true
+  pipelines_enabled = true
 }
 
 resource "bitbucket_repository_variable" "debug" {
