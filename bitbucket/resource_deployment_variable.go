@@ -105,7 +105,7 @@ func resourceDeploymentVariableRead(ctx context.Context, d *schema.ResourceData,
 		return diag.FromErr(err)
 	}
 
-	rvRes, res, err := pipeApi.GetDeploymentVariables(c.AuthContext, workspace, repoSlug, deployment)
+	rvRes, res, err := pipeApi.GetDeploymentVariables(c.AuthContext, workspace, repoSlug, deployment, nil)
 
 	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Deployment Variable (%s) not found, removing from state", d.Id())
