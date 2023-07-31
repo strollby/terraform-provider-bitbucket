@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/strollby/bitbucket-go-client"
 )
 
 func handleClientError(err error) error {
