@@ -133,7 +133,7 @@ func testAccCheckBitbucketDeploymentVariableDestroy(s *terraform.State) error {
 			return err
 		}
 
-		_, res, err := pipeApi.GetDeploymentVariables(client.AuthContext, workspace, repoSlug, deployment)
+		_, res, err := pipeApi.GetDeploymentVariables(client.AuthContext, workspace, repoSlug, deployment, nil)
 
 		if err == nil {
 			return fmt.Errorf("The resource was found should have errored")

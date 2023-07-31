@@ -91,6 +91,7 @@ func Provider() *schema.Provider {
 			"bitbucket_repository_variable":         resourceRepositoryVariable(),
 			"bitbucket_ssh_key":                     resourceSshKey(),
 			"bitbucket_workspace_hook":              resourceWorkspaceHook(),
+			"bitbucket_workspace_variable":          resourceWorkspaceVariable(),
 		},
 		DataSourcesMap: map[string]*schema.Resource{
 			"bitbucket_current_user":              dataCurrentUser(),
