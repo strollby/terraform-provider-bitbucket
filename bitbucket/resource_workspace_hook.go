@@ -45,9 +45,22 @@ func resourceWorkspaceHook() *schema.Resource {
 				Optional: true,
 				Default:  true,
 			},
+			"secret_set": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			"history_enabled": {
+				Type:     schema.TypeBool,
+				Optional: true,
+			},
 			"url": {
 				Type:     schema.TypeString,
 				Required: true,
+			},
+			"secret": {
+				Type:      schema.TypeString,
+				Optional:  true,
+				Sensitive: true,
 			},
 			"uuid": {
 				Type:     schema.TypeString,
@@ -167,7 +180,10 @@ func resourceWorkspaceHookRead(ctx context.Context, d *schema.ResourceData, m in
 		d.Set("uuid", hook.UUID)
 		d.Set("description", hook.Description)
 		d.Set("active", hook.Active)
+		d.Set("history_enabled", hook.HistoryEnabled)
+		d.Set("secret_set", hook.SecretSet)
 		d.Set("url", hook.URL)
+		d.Set("secret", d.Get("secret").(string))
 		d.Set("skip_cert_verification", hook.SkipCertVerification)
 		d.Set("events", hook.Events)
 	}

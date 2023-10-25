@@ -24,6 +24,9 @@ type Hook struct {
 	Active               bool     `json:"active"`
 	SkipCertVerification bool     `json:"skip_cert_verification"`
 	Events               []string `json:"events,omitempty"`
+	Secret               string   `json:"secret"`
+	SecretSet            bool     `json:"secret_set,omitempty"`
+	HistoryEnabled       bool     `json:"history_enabled,omitempty"`
 }
 
 func resourceHook() *schema.Resource {
@@ -61,9 +64,22 @@ func resourceHook() *schema.Resource {
 				Optional: true,
 				Default:  true,
 			},
+			"secret_set": {
+				Type:     schema.TypeBool,
+				Computed: true,
+			},
+			"history_enabled": {
+				Type:     schema.TypeBool,
+				Optional: true,
+			},
 			"url": {
 				Type:     schema.TypeString,
 				Required: true,
+			},
+			"secret": {
+				Type:      schema.TypeString,
+				Optional:  true,
+				Sensitive: true,
 			},
 			"uuid": {
 				Type:     schema.TypeString,
@@ -128,7 +144,9 @@ func createHook(d *schema.ResourceData) *Hook {
 		URL:                  d.Get("url").(string),
 		Description:          d.Get("description").(string),
 		Active:               d.Get("active").(bool),
+		HistoryEnabled:       d.Get("history_enabled").(bool),
 		SkipCertVerification: d.Get("skip_cert_verification").(bool),
+		Secret:               d.Get("secret").(string),
 		Events:               events,
 	}
 
@@ -196,6 +214,8 @@ func resourceHookRead(ctx context.Context, d *schema.ResourceData, m interface{}
 			return diag.FromErr(readerr)
 		}
 
+		log.Printf("[DEBUG] Hook json: %s", string(body))
+
 		decodeerr := json.Unmarshal(body, &hook)
 		if decodeerr != nil {
 			return diag.FromErr(decodeerr)
@@ -204,7 +224,10 @@ func resourceHookRead(ctx context.Context, d *schema.ResourceData, m interface{}
 		d.Set("uuid", hook.UUID)
 		d.Set("description", hook.Description)
 		d.Set("active", hook.Active)
+		d.Set("history_enabled", hook.HistoryEnabled)
+		d.Set("secret_set", hook.SecretSet)
 		d.Set("url", hook.URL)
+		d.Set("secret", d.Get("secret").(string))
 		d.Set("skip_cert_verification", hook.SkipCertVerification)
 		d.Set("events", hook.Events)
 	}
