@@ -39,6 +39,17 @@ The following arguments are supported:
 * `url` - (Required) Where to POST to.
 * `description` - (Required) The name / description to show in the UI.
 * `events` - (Required) The events this webhook is subscribed to. Valid values can be found at [Bitbucket Event Payloads Docs](https://support.atlassian.com/bitbucket-cloud/docs/event-payloads/).
+* `active` - (Optional) Whether the webhook configuration is active or not (Default: `true`).
+* `skip_cert_verification` - (Optional) Whether to skip certificate verification or not (Default: `true`).
+* `secret` - (Optional) A Webhook secret value. Passing a null or empty secret or not passing a secret will leave the webhook's secret unset. This value is not returned on read and cannot resolve diffs or be imported as its not returned back from bitbucket API.
+
+## Attributes Reference
+
+In addition to all arguments above, the following attributes are exported:
+
+* `uuid` - The UUID of the workspace webhook.
+* `secret_set` - Whether a webhook secret is set.
+* `history_enabled` - Whether a webhook history is enabled.
 
 ## Import
 

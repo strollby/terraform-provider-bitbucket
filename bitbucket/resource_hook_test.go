@@ -34,7 +34,9 @@ func TestAccBitbucketHook_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", "Test hook for terraform"),
 					resource.TestCheckResourceAttr(resourceName, "url", "https://httpbin.org"),
 					resource.TestCheckResourceAttr(resourceName, "skip_cert_verification", "true"),
-					resource.TestCheckResourceAttr(resourceName, "skip_cert_verification", "true"),
+					resource.TestCheckResourceAttr(resourceName, "secret_set", "false"),
+					resource.TestCheckResourceAttr(resourceName, "history_enabled", "false"),
+					resource.TestCheckResourceAttr(resourceName, "active", "true"),
 					resource.TestCheckResourceAttr(resourceName, "events.#", "1"),
 				),
 			},
@@ -45,14 +47,16 @@ func TestAccBitbucketHook_basic(t *testing.T) {
 				ImportStateVerify: true,
 			},
 			{
-				Config: testAccBitbucketHookConfigUpdated(testUser, rName),
+				Config: testAccBitbucketHookConfigUpdated(testUser, rName, false),
 				Check: resource.ComposeTestCheckFunc(
 					testAccCheckBitbucketHookExists(resourceName, &hook),
 					resource.TestCheckResourceAttrPair(resourceName, "repository", "bitbucket_repository.test", "name"),
 					resource.TestCheckResourceAttr(resourceName, "description", "Test hook for terraform Updated"),
 					resource.TestCheckResourceAttr(resourceName, "url", "https://httpbin.org"),
-					resource.TestCheckResourceAttr(resourceName, "skip_cert_verification", "true"),
-					resource.TestCheckResourceAttr(resourceName, "skip_cert_verification", "true"),
+					resource.TestCheckResourceAttr(resourceName, "skip_cert_verification", "false"),
+					resource.TestCheckResourceAttr(resourceName, "secret_set", "true"),
+					resource.TestCheckResourceAttr(resourceName, "history_enabled", "false"),
+					resource.TestCheckResourceAttr(resourceName, "active", "false"),
 					resource.TestCheckResourceAttr(resourceName, "events.#", "2"),
 				),
 			},
@@ -64,7 +68,9 @@ func TestAccBitbucketHook_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "description", "Test hook for terraform"),
 					resource.TestCheckResourceAttr(resourceName, "url", "https://httpbin.org"),
 					resource.TestCheckResourceAttr(resourceName, "skip_cert_verification", "true"),
-					resource.TestCheckResourceAttr(resourceName, "skip_cert_verification", "true"),
+					resource.TestCheckResourceAttr(resourceName, "secret_set", "false"),
+					resource.TestCheckResourceAttr(resourceName, "history_enabled", "false"),
+					resource.TestCheckResourceAttr(resourceName, "active", "true"),
 					resource.TestCheckResourceAttr(resourceName, "events.#", "1"),
 				),
 			},
@@ -153,7 +159,7 @@ resource "bitbucket_hook" "test" {
 `, testUser, rName)
 }
 
-func testAccBitbucketHookConfigUpdated(testUser, rName string) string {
+func testAccBitbucketHookConfigUpdated(testUser, rName string, enable bool) string {
 	return fmt.Sprintf(`
 resource "bitbucket_repository" "test" {
   owner = %[1]q
@@ -164,14 +170,16 @@ resource "bitbucket_hook" "test" {
   repository             = bitbucket_repository.test.name
   description            = "Test hook for terraform Updated"
   url                    = "https://httpbin.org"
-  skip_cert_verification = true
+  skip_cert_verification = %[3]t
+  active                 = %[3]t
+  secret                 = %[2]q
 
   events = [
   	"repo:push",
     "repo:fork",
   ]
 }
-`, testUser, rName)
+`, testUser, rName, enable)
 }
 
 func testAccBitbucketHookImportStateIdFunc(resourceName string) resource.ImportStateIdFunc {
