@@ -42,6 +42,22 @@ func TestAccBitbucketProject_basic(t *testing.T) {
 				ImportState:       true,
 				ImportStateVerify: true,
 			},
+			{
+				Config: testAccBitbucketProjectDescConfig(testTeam, rName, rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketProjectExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "has_publicly_visible_repos", "false"),
+					resource.TestCheckResourceAttr(resourceName, "key", "AAAAAA"),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+					resource.TestCheckResourceAttr(resourceName, "owner", testTeam),
+					resource.TestCheckResourceAttr(resourceName, "description", rName),
+					resource.TestCheckResourceAttr(resourceName, "is_private", "true"),
+					resource.TestCheckResourceAttrSet(resourceName, "uuid"),
+					resource.TestCheckResourceAttr(resourceName, "link.#", "1"),
+					resource.TestCheckResourceAttr(resourceName, "link.0.avatar.#", "1"),
+					resource.TestCheckResourceAttrSet(resourceName, "link.0.avatar.0.href"),
+				),
+			},
 		},
 	})
 }
@@ -82,6 +98,17 @@ resource "bitbucket_project" "test" {
   key   = "AAAAAA"
 }
 `, team, rName)
+}
+
+func testAccBitbucketProjectDescConfig(team, rName, desc string) string {
+	return fmt.Sprintf(`
+resource "bitbucket_project" "test" {
+  owner       = %[1]q
+  name        = %[2]q
+  key         = "AAAAAA"
+  description = %[3]q
+}
+`, team, rName, desc)
 }
 
 func testAccBitbucketProjectAvatarConfig(team, rName string) string {

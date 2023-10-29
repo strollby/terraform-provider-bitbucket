@@ -86,6 +86,10 @@ func resourceProject() *schema.Resource {
 	}
 }
 
+// type SmallProject struct {
+// 	Links *bitbucket.ProjectLinks `json:"links,omitempty"`
+// }
+
 func newProjectFromResource(d *schema.ResourceData) *bitbucket.Project {
 	project := &bitbucket.Project{
 		Name:        d.Get("name").(string),
@@ -94,7 +98,7 @@ func newProjectFromResource(d *schema.ResourceData) *bitbucket.Project {
 		Key:         d.Get("key").(string),
 	}
 
-	if v, ok := d.GetOk("link"); ok && len(v.([]interface{})) > 0 && v.([]interface{}) != nil {
+	if v, ok := d.GetOk("link"); d.IsNewResource() && ok && len(v.([]interface{})) > 0 && v.([]interface{}) != nil {
 		project.Links = expandProjectLinks(v.([]interface{}))
 	}
 
@@ -103,6 +107,7 @@ func newProjectFromResource(d *schema.ResourceData) *bitbucket.Project {
 
 func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
 	c := m.(Clients).genClient
+	// client := m.(Clients).httpClient
 	projectApi := c.ApiClient.ProjectsApi
 	project := newProjectFromResource(d)
 
@@ -112,10 +117,40 @@ func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, m interf
 		projectKey = d.Get("key").(string)
 	}
 
-	_, _, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyPut(c.AuthContext, *project, projectKey, d.Get("owner").(string))
+	log.Printf("[DEBUG] Project Update Body: %#v", project)
+	project.Links = nil
+
+	prj, _, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyPut(c.AuthContext, *project, projectKey, d.Get("owner").(string))
 	if err := handleClientError(err); err != nil {
 		return diag.FromErr(err)
 	}
+
+	log.Printf("[DEBUG] Project Update Res: %#v", prj)
+
+	// if d.HasChange("link") {
+	// 	if v, ok := d.GetOk("link"); ok && len(v.([]interface{})) > 0 && v.([]interface{}) != nil {
+
+	// 		smallProject := SmallProject{
+	// 			Links: expandProjectLinks(v.([]interface{})),
+	// 		}
+
+	// 		payload, err := json.Marshal(smallProject)
+	// 		if err != nil {
+	// 			return diag.FromErr(err)
+	// 		}
+
+	// 		log.Printf("[DEBUG] Project Update Links Body: %s", string(payload))
+
+	// 		_, err = client.Put(fmt.Sprintf("2.0/workspaces/%s/projects/%s",
+	// 			d.Get("owner").(string), d.Get("key").(string),
+	// 		), bytes.NewBuffer(payload))
+
+	// 		if err != nil {
+	// 			return diag.FromErr(err)
+	// 		}
+
+	// 	}
+	// }
 
 	return resourceProjectRead(ctx, d, m)
 }
@@ -132,6 +167,8 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	owner := d.Get("owner").(string)
+
+	log.Printf("[DEBUG] Project Create Body: %#v", project)
 
 	projRes, _, err := projectApi.WorkspacesWorkspaceProjectsPost(c.AuthContext, *project, owner)
 	if err := handleClientError(err); err != nil {
