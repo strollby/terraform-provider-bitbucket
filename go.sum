@@ -1,7 +1,7 @@
 dario.cat/mergo v1.0.0 h1:AGCNq9Evsj31mOgNPcLyXc+4PNABt905YmuqPYYpBWk=
 dario.cat/mergo v1.0.0/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
-github.com/DrFaust92/bitbucket-go-client v0.9.0 h1:kaskqXI1W/2CNCaAEtAZAioeOWMQA2Ujx7T7GWMV40U=
-github.com/DrFaust92/bitbucket-go-client v0.9.0/go.mod h1:Ok5UjwgGv022uXk34qQpE2MhOC4xU1i8ieI2Xa80UC8=
+github.com/DrFaust92/bitbucket-go-client v0.9.1 h1:gsKb5FzhF/PArUrl6Gq9OoQ+UlGEz0Wa996wQzyeEAA=
+github.com/DrFaust92/bitbucket-go-client v0.9.1/go.mod h1:Ok5UjwgGv022uXk34qQpE2MhOC4xU1i8ieI2Xa80UC8=
 github.com/Microsoft/go-winio v0.6.1 h1:9/kr64B9VUZrLm5YYwbGtUJnMgqWVOdUAXu6Migciow=
 github.com/Microsoft/go-winio v0.6.1/go.mod h1:LRdKpFKfdobln8UmuiYcKPot9D2v6svN5+sAH+4kjUM=
 github.com/ProtonMail/go-crypto v0.0.0-20230717121422-5aa5874ade95 h1:KLq8BE0KwCL+mmXnjLWEAOYO+2l2AE4YMmqG1ZpZHBs=
