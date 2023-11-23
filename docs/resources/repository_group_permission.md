@@ -6,7 +6,7 @@ description: |-
   Provides a Bitbucket Repository Group Permission Resource
 ---
 
-# bitbucket\_hook
+# bitbucket\_repository\_group\_permission
 
 Provides a Bitbucket Repository Group Permission Resource.
 
@@ -14,7 +14,7 @@ This allows you set explicit group permission for a repository.
 
 OAuth2 Scopes: `repository:admin`
 
-Note: can only be used when authenticating with Bitbucket CLoud using an _app password_. Authenticating via an OAuth flow gives a 403 error due to a [restriction in the Bitbucket Cloud API](https://developer.atlassian.com/cloud/bitbucket/rest/api-group-repositories/#api-repositories-workspace-repo-slug-permissions-config-groups-group-slug-put).
+Note: can only be used when authenticating with Bitbucket Cloud using an _app password_. Authenticating via an OAuth flow gives a 403 error due to a [restriction in the Bitbucket Cloud API](https://developer.atlassian.com/cloud/bitbucket/rest/api-group-repositories/#api-repositories-workspace-repo-slug-permissions-config-groups-group-slug-put).
 
 ## Example Usage
 
