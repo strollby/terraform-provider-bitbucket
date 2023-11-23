@@ -6,7 +6,7 @@ description: |-
   Provides a Bitbucket Repository User Permission Resource
 ---
 
-# bitbucket\_hook
+# bitbucket\_repository\_user\_permission
 
 Provides a Bitbucket Repository User Permission Resource.
 
