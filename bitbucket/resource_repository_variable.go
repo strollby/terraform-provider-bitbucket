@@ -18,6 +18,18 @@ func resourceRepositoryVariable() *schema.Resource {
 		UpdateWithoutTimeout: resourceRepositoryVariableUpdate,
 		ReadWithoutTimeout:   resourceRepositoryVariableRead,
 		DeleteWithoutTimeout: resourceRepositoryVariableDelete,
+		Importer: &schema.ResourceImporter{
+			State: func(d *schema.ResourceData, meta interface{}) ([]*schema.ResourceData, error) {
+				idParts := strings.Split(d.Id(), "/")
+				if len(idParts) != 4 || idParts[0] == "" || idParts[1] == "" || idParts[2] == "" || idParts[3] == "" {
+					return nil, fmt.Errorf("unexpected format of ID (%q), expected REPOSITORY/KEY/UUID", d.Id())
+				}
+				d.SetId(idParts[2])
+				d.Set("uuid", idParts[3])
+				d.Set("repository", fmt.Sprintf("%s/%s", idParts[0], idParts[1]))
+				return []*schema.ResourceData{d}, nil
+			},
+		},
 
 		Schema: map[string]*schema.Schema{
 			"uuid": {
@@ -41,6 +53,10 @@ func resourceRepositoryVariable() *schema.Resource {
 			"repository": {
 				Type:     schema.TypeString,
 				Required: true,
+			},
+			"workspace": {
+				Type:     schema.TypeString,
+				Computed: true,
 			},
 		},
 	}
@@ -102,6 +118,7 @@ func resourceRepositoryVariableRead(ctx context.Context, d *schema.ResourceData,
 	d.Set("uuid", rvRes.Uuid)
 	d.Set("key", rvRes.Key)
 	d.Set("secured", rvRes.Secured)
+	d.Set("workspace", workspace)
 
 	if !rvRes.Secured {
 		d.Set("value", rvRes.Value)

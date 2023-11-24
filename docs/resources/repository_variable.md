@@ -25,7 +25,7 @@ resource "bitbucket_repository" "monorepo" {
 resource "bitbucket_repository_variable" "debug" {
   key        = "DEBUG"
   value      = "true"
-  repository = "${bitbucket_repository.monorepo.id}"
+  repository = bitbucket_repository.monorepo.id
   secured    = false
 }
 ```
@@ -33,8 +33,19 @@ resource "bitbucket_repository_variable" "debug" {
 ## Argument Reference
 
 * `key` - (Required) The key of the key value pair
-* `value` - (Required) The value of the key
-* `repository` - (Required) The repository ID you want to put this variable onto.
+* `value` - (Required) The value of the key. This will not be returned if `secured` is set to true from API and wont be drift detected by provider.
+* `repository` - (Required) The repository ID you want to put this variable onto. (of form workspace-id/repository-id)
 * `secured` - (Optional) If you want to make this viewable in the UI.
 
-* `uuid` - (Computed) The UUID of the variable
+## Attributes Reference
+
+* `uuid` - (Computed) The UUID identifying the variable.
+* `workspace` - (Computed) The workspace the variable is created in.
+
+## Import
+
+Repository Variables can be imported using their `workspace/repository/key/uuid` ID, e.g.
+
+```sh
+terraform import bitbucket_repository_variable.example workspace/repository/key/uuid
+```

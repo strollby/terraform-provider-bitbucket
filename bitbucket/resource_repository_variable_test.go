@@ -30,7 +30,14 @@ func TestAccBitbucketRepositoryVariable_basic(t *testing.T) {
 					resource.TestCheckResourceAttr(resourceName, "key", "test"),
 					resource.TestCheckResourceAttr(resourceName, "value", "test-val"),
 					resource.TestCheckResourceAttr(resourceName, "secured", "false"),
+					resource.TestCheckResourceAttr(resourceName, "workspace", owner),
 				),
+			},
+			{
+				ResourceName:      resourceName,
+				ImportState:       true,
+				ImportStateIdFunc: testAccBitbucketRepoVariableImportStateIdFunc(resourceName),
+				ImportStateVerify: true,
 			},
 			{
 				Config: testAccBitbucketRepositoryVariableConfig(owner, rName, "test-val-2"),
@@ -98,4 +105,15 @@ resource "bitbucket_repository_variable" "test" {
   repository = bitbucket_repository.test.id
 }
 `, team, rName, val)
+}
+
+func testAccBitbucketRepoVariableImportStateIdFunc(resourceName string) resource.ImportStateIdFunc {
+	return func(s *terraform.State) (string, error) {
+		rs, ok := s.RootModule().Resources[resourceName]
+		if !ok {
+			return "", fmt.Errorf("Not found: %s", resourceName)
+		}
+
+		return fmt.Sprintf("%s/%s/%s", rs.Primary.Attributes["repository"], rs.Primary.ID, rs.Primary.Attributes["uuid"]), nil
+	}
 }
