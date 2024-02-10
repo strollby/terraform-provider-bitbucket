@@ -240,12 +240,20 @@ func resourceDeploymentUpdate(ctx context.Context, d *schema.ResourceData, m int
 }
 
 func resourceDeploymentDelete(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(Clients).httpClient
-	_, err := client.Delete(fmt.Sprintf("2.0/repositories/%s/environments/%s",
-		d.Get("repository").(string),
-		d.Get("uuid").(string),
-	))
-	return diag.FromErr(err)
+	c := m.(Clients).genClient
+	deployApi := c.ApiClient.DeploymentsApi
+
+	workspaceId, repoId, err := deploymentRepoId(d.Get("repository").(string))
+	if err != nil {
+		return diag.FromErr(err)
+	}
+
+	_, err = deployApi.DeleteEnvironmentForRepository(c.AuthContext, workspaceId, repoId, d.Get("uuid").(string))
+	if err := handleClientError(err); err != nil {
+		return diag.FromErr(err)
+	}
+
+	return nil
 }
 
 func expandRestrictions(conf []interface{}) Restrictions {
@@ -275,6 +283,16 @@ func deploymentId(id string) (string, string, error) {
 
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("unexpected format of ID (%q), expected REPO-ID:DEPLOYMENT-UUID", id)
+	}
+
+	return parts[0], parts[1], nil
+}
+
+func deploymentRepoId(id string) (string, string, error) {
+	parts := strings.Split(id, "/")
+
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("unexpected format of ID (%q), expected WORKSPACE-ID/REPO-ID", id)
 	}
 
 	return parts[0], parts[1], nil
