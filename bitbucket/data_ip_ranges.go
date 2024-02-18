@@ -25,6 +25,7 @@ type IPRange struct {
 	Regions    []string `json:"region"`
 	Products   []string `json:"product"`
 	Directions []string `json:"direction"`
+	Perimeter  string   `json:"perimeter"`
 }
 
 func dataIPRanges() *schema.Resource {
@@ -66,6 +67,10 @@ func dataIPRanges() *schema.Resource {
 						"directions": {
 							Type:     schema.TypeSet,
 							Elem:     &schema.Schema{Type: schema.TypeString},
+							Computed: true,
+						},
+						"perimeter": {
+							Type:     schema.TypeString,
 							Computed: true,
 						},
 					},
@@ -126,6 +131,7 @@ func flattenIPRanges(ranges []IPRange) []interface{} {
 			"directions": btRaw.Directions,
 			"products":   btRaw.Products,
 			"regions":    btRaw.Regions,
+			"perimeter":  btRaw.Perimeter,
 		}
 
 		tfList = append(tfList, ipRange)

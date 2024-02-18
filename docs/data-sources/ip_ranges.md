@@ -35,3 +35,4 @@ There are no arguments available for this data source.
 * `regions` - A Set of regions the range is associated with.
 * `products` - A Set of Atlasian products (Bitbucket, Jira, etc) the range is associated with.
 * `directions` - A Set of directions (Ingress/Egress) the range is associated with.
+* `perimeter` - The allowed perimeter of the range.

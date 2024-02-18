@@ -16,10 +16,11 @@ func TestAccDataSourceIPRanges_basic(t *testing.T) {
 				Config: testAccBitbucketIPRangesConfig(),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckTypeSetElemNestedAttrs(dataSourceName, "ranges.*", map[string]string{
-						"network":  "3.26.128.128",
-						"mask_len": "26",
-						"cidr":     "3.26.128.128/26",
-						"mask":     "255.255.255.192",
+						"network":   "3.26.128.128",
+						"mask_len":  "26",
+						"cidr":      "3.26.128.128/26",
+						"mask":      "255.255.255.192",
+						"perimeter": "commercial",
 					}),
 				),
 			},
