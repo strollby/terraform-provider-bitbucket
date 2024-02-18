@@ -29,3 +29,10 @@ The following arguments are supported:
 ## Attributes Reference
 
 * `members` - A list of group member uuid.
+* `group_members` - A set of group member objects. See [Group Member](#group-member) below.
+
+### Group Member
+
+* `uuid` - User UUID.
+* `username` - The Username.
+* `display_name` - The User display name.

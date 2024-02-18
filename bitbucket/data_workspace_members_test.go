@@ -19,6 +19,8 @@ func TestAccDataSourceWorkspaceMembers_basic(t *testing.T) {
 				Config: testAccBitbucketWorkspaceMembersConfig(workspace),
 				Check: resource.ComposeTestCheckFunc(
 					resource.TestCheckResourceAttrSet(dataSourceName, "members.#"),
+					resource.TestCheckTypeSetElemAttrPair(dataSourceName, "members.*", "data.bitbucket_current_user.test", "uuid"),
+					resource.TestCheckResourceAttrSet(dataSourceName, "workspace_members.#"),
 				),
 			},
 		},
@@ -27,6 +29,8 @@ func TestAccDataSourceWorkspaceMembers_basic(t *testing.T) {
 
 func testAccBitbucketWorkspaceMembersConfig(workspace string) string {
 	return fmt.Sprintf(`
+data "bitbucket_current_user" "test" {}
+
 data "bitbucket_workspace_members" "test" {
   workspace = %[1]q
 }

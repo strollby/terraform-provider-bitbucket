@@ -2,10 +2,10 @@ package bitbucket
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"log"
 
 	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/antihax/optional"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -20,48 +20,60 @@ func dataWorkspaceMembers() *schema.Resource {
 				Required: true,
 			},
 			"members": {
+				Type:       schema.TypeSet,
+				Elem:       &schema.Schema{Type: schema.TypeString},
+				Computed:   true,
+				Deprecated: "use workspace_members instead",
+			},
+			"workspace_members": {
 				Type:     schema.TypeSet,
-				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"uuid": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"username": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"display_name": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+					},
+				},
 			},
 		},
 	}
 }
 
 func dataReadWorkspaceMembers(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(Clients).httpClient
+	c := m.(Clients).genClient
+
+	workspaceApi := c.ApiClient.WorkspacesApi
 
 	workspace := d.Get("workspace").(string)
-	resourceURL := fmt.Sprintf("2.0/workspaces/%s/members", workspace)
 
-	_, err := client.Get(resourceURL)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	var paginatedMemberships bitbucket.PaginatedWorkspaceMemberships
 	var members []string
+	var accounts []bitbucket.Account
+	options := bitbucket.WorkspacesApiWorkspacesWorkspaceMembersGetOpts{}
 
 	for {
-		membersRes, err := client.Get(resourceURL)
-		if err != nil {
+		flattenAccountsReq, _, err := workspaceApi.WorkspacesWorkspaceMembersGet(c.AuthContext, workspace, &options)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
 		}
 
-		decoder := json.NewDecoder(membersRes.Body)
-		err = decoder.Decode(&paginatedMemberships)
-		if err != nil {
-			return diag.FromErr(err)
-		}
-
-		for _, member := range paginatedMemberships.Values {
+		for _, member := range flattenAccountsReq.Values {
 			members = append(members, member.User.Uuid)
+			accounts = append(accounts, *member.User)
 		}
 
-		if paginatedMemberships.Next != "" {
-			nextPage := paginatedMemberships.Page + 1
-			resourceURL = fmt.Sprintf("2.0/workspaces/%s/members?page=%d", workspace, nextPage)
-			paginatedMemberships = bitbucket.PaginatedWorkspaceMemberships{}
+		if flattenAccountsReq.Next != "" {
+			nextPage := flattenAccountsReq.Page + 1
+			options.Page = optional.NewInt32(nextPage)
 		} else {
 			break
 		}
@@ -70,6 +82,29 @@ func dataReadWorkspaceMembers(ctx context.Context, d *schema.ResourceData, m int
 	d.SetId(workspace)
 	d.Set("workspace", workspace)
 	d.Set("members", members)
+	d.Set("workspace_members", flattenAccounts(accounts))
 
 	return nil
+}
+
+func flattenAccounts(flattenAccounts []bitbucket.Account) []interface{} {
+	if len(flattenAccounts) == 0 {
+		return nil
+	}
+
+	var tfList []interface{}
+
+	for _, account := range flattenAccounts {
+		log.Printf("[DEBUG] Workspace Member Response: %#v", account)
+
+		flattenAccounts := map[string]interface{}{
+			"uuid":         account.Uuid,
+			"username":     account.DisplayName,
+			"display_name": account.Username,
+		}
+
+		tfList = append(tfList, flattenAccounts)
+	}
+
+	return tfList
 }

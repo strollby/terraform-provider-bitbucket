@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 
+	"github.com/DrFaust92/bitbucket-go-client"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -25,9 +26,30 @@ func dataGroupMembers() *schema.Resource {
 				Required: true,
 			},
 			"members": {
+				Type:       schema.TypeSet,
+				Elem:       &schema.Schema{Type: schema.TypeString},
+				Computed:   true,
+				Deprecated: "use group_members instead",
+			},
+			"group_members": {
 				Type:     schema.TypeSet,
-				Elem:     &schema.Schema{Type: schema.TypeString},
 				Computed: true,
+				Elem: &schema.Resource{
+					Schema: map[string]*schema.Schema{
+						"uuid": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"username": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+						"display_name": {
+							Type:     schema.TypeString,
+							Computed: true,
+						},
+					},
+				},
 			},
 		},
 	}
@@ -45,7 +67,7 @@ func dataReadGroupMembers(ctx context.Context, d *schema.ResourceData, m interfa
 		return diag.Errorf("error reading Group (%s): empty response", d.Id())
 	}
 
-	var members []*UserGroupMembership
+	var members []bitbucket.Account
 
 	body, readerr := io.ReadAll(groupsReq.Body)
 	if readerr != nil {
@@ -63,13 +85,14 @@ func dataReadGroupMembers(ctx context.Context, d *schema.ResourceData, m interfa
 
 	var mems []string
 	for _, mbr := range members {
-		mems = append(mems, mbr.UUID)
+		mems = append(mems, mbr.Uuid)
 	}
 
 	d.SetId(fmt.Sprintf("%s/%s", workspace, slug))
 	d.Set("workspace", workspace)
 	d.Set("slug", slug)
 	d.Set("members", mems)
+	d.Set("group_members", flattenAccounts(members))
 
 	return nil
 }
