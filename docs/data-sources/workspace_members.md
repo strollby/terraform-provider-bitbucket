@@ -30,3 +30,10 @@ The following arguments are supported:
 
 * `members` - A set of string containing the member UUIDs.
 * `id` - The workspace's immutable id.
+* `workspace_members` - A set of workspace member objects. See [Workspace Members](#workspace-member) below.
+
+### Workspace Member
+
+* `uuid` - User UUID.
+* `username` - The Username.
+* `display_name` - The User display name.
