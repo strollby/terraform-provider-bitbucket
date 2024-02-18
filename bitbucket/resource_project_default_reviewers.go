@@ -2,13 +2,13 @@ package bitbucket
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
 	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/antihax/optional"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -63,39 +63,27 @@ func resourceProjectDefaultReviewersCreate(ctx context.Context, d *schema.Resour
 }
 
 func resourceProjectDefaultReviewersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(Clients).httpClient
+	c := m.(Clients).genClient
+	projectsApi := c.ApiClient.ProjectsApi
 
 	workspace, project, err := defaultProjectReviewersId(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
 
-	resourceURL := fmt.Sprintf("2.0/workspaces/%s/projects/%s/default-reviewers", workspace, project)
-
-	res, err := client.Get(resourceURL)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if res.StatusCode == http.StatusNotFound {
-		log.Printf("[WARN] Project Default Reviewers (%s) not found, removing from state", d.Id())
-		d.SetId("")
-		return nil
-	}
-
-	var reviewers bitbucket.PaginatedDefaultReviewerAndType
+	options := bitbucket.ProjectsApiWorkspacesWorkspaceProjectsProjectKeyDefaultReviewersGetOpts{}
 	var terraformReviewers []string
 
 	for {
-		reviewersResponse, err := client.Get(resourceURL)
-		if err != nil {
+		reviewers, res, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersGet(c.AuthContext, project, workspace, &options)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
 		}
 
-		decoder := json.NewDecoder(reviewersResponse.Body)
-		err = decoder.Decode(&reviewers)
-		if err != nil {
-			return diag.FromErr(err)
+		if res.StatusCode == http.StatusNotFound {
+			log.Printf("[WARN] Project Default Reviewers (%s) not found, removing from state", d.Id())
+			d.SetId("")
+			return nil
 		}
 
 		for _, reviewer := range reviewers.Values {
@@ -104,8 +92,7 @@ func resourceProjectDefaultReviewersRead(ctx context.Context, d *schema.Resource
 
 		if reviewers.Next != "" {
 			nextPage := reviewers.Page + 1
-			resourceURL = fmt.Sprintf("2.0/workspaces/%s/projects/%s/default-reviewers?page=%d", workspace, project, nextPage)
-			reviewers = bitbucket.PaginatedDefaultReviewerAndType{}
+			options.Page = optional.NewInt32(nextPage)
 		} else {
 			break
 		}

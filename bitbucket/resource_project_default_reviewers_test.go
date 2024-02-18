@@ -58,12 +58,15 @@ resource "bitbucket_project_default_reviewers" "test" {
 }
 
 func testAccCheckBitbucketProjectDefaultReviewersDestroy(s *terraform.State) error {
-	client := testAccProvider.Meta().(Clients).httpClient
+	client := testAccProvider.Meta().(Clients).genClient
+	projectsApi := client.ApiClient.ProjectsApi
+
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "bitbucket_project_default_reviewers" {
 			continue
 		}
-		response, _ := client.Get(fmt.Sprintf("2.0/workspaces/%s/projects/%s/default-reviewers", rs.Primary.Attributes["workspace"], rs.Primary.Attributes["project"]))
+
+		_, response, _ := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersGet(client.AuthContext, rs.Primary.Attributes["project"], rs.Primary.Attributes["workspace"], nil)
 
 		if response.StatusCode != http.StatusNotFound {
 			return fmt.Errorf("Project Defaults Reviewer still exists")
