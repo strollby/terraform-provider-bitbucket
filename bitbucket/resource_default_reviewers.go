@@ -2,30 +2,16 @@ package bitbucket
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"strings"
 
+	"github.com/DrFaust92/bitbucket-go-client"
+	"github.com/antihax/optional"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/diag"
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
-
-// Reviewer is teh default reviewer you want
-type Reviewer struct {
-	DisplayName string `json:"display_name,omitempty"`
-	UUID        string `json:"uuid,omitempty"`
-	Type        string `json:"type,omitempty"`
-}
-
-// PaginatedReviewers is a paginated list that the bitbucket api returns
-type PaginatedReviewers struct {
-	Values []Reviewer `json:"values,omitempty"`
-	Page   int        `json:"page,omitempty"`
-	Size   int        `json:"size,omitempty"`
-	Next   string     `json:"next,omitempty"`
-}
 
 func resourceDefaultReviewers() *schema.Resource {
 	return &schema.Resource{
@@ -77,48 +63,37 @@ func resourceDefaultReviewersCreate(ctx context.Context, d *schema.ResourceData,
 }
 
 func resourceDefaultReviewersRead(ctx context.Context, d *schema.ResourceData, m interface{}) diag.Diagnostics {
-	client := m.(Clients).httpClient
+	c := m.(Clients).genClient
+	prApi := c.ApiClient.PullrequestsApi
+
+	options := bitbucket.PullrequestsApiRepositoriesWorkspaceRepoSlugDefaultReviewersGetOpts{}
 
 	owner, repo, err := defaultReviewersId(d.Id())
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	resourceURL := fmt.Sprintf("2.0/repositories/%s/%s/default-reviewers", owner, repo)
 
-	res, err := client.Get(resourceURL)
-	if err != nil {
-		return diag.FromErr(err)
-	}
-
-	if res.StatusCode == http.StatusNotFound {
-		log.Printf("[WARN] Default Reviewers (%s) not found, removing from state", d.Id())
-		d.SetId("")
-		return nil
-	}
-
-	var reviewers PaginatedReviewers
 	var terraformReviewers []string
 
 	for {
-		reviewersResponse, err := client.Get(resourceURL)
-		if err != nil {
+		reviewers, res, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersGet(c.AuthContext, repo, owner, &options)
+		if err := handleClientError(err); err != nil {
 			return diag.FromErr(err)
 		}
 
-		decoder := json.NewDecoder(reviewersResponse.Body)
-		err = decoder.Decode(&reviewers)
-		if err != nil {
-			return diag.FromErr(err)
+		if res.StatusCode == http.StatusNotFound {
+			log.Printf("[WARN] Default Reviewers (%s) not found, removing from state", d.Id())
+			d.SetId("")
+			return nil
 		}
 
 		for _, reviewer := range reviewers.Values {
-			terraformReviewers = append(terraformReviewers, reviewer.UUID)
+			terraformReviewers = append(terraformReviewers, reviewer.Uuid)
 		}
 
 		if reviewers.Next != "" {
 			nextPage := reviewers.Page + 1
-			resourceURL = fmt.Sprintf("2.0/repositories/%s/%s/default-reviewers?page=%d", owner, repo, nextPage)
-			reviewers = PaginatedReviewers{}
+			options.Page = optional.NewInt32(nextPage)
 		} else {
 			break
 		}

@@ -57,12 +57,13 @@ resource "bitbucket_default_reviewers" "test" {
 }
 
 func testAccCheckBitbucketDefaultReviewersDestroy(s *terraform.State) error {
-	client := testAccProvider.Meta().(Clients).httpClient
+	client := testAccProvider.Meta().(Clients).genClient
+	prApi := client.ApiClient.PullrequestsApi
 	for _, rs := range s.RootModule().Resources {
 		if rs.Type != "bitbucket_default_reviewers" {
 			continue
 		}
-		response, _ := client.Get(fmt.Sprintf("2.0/repositories/%s/%s/default-reviewers", rs.Primary.Attributes["owner"], rs.Primary.Attributes["repository"]))
+		_, response, _ := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersGet(client.AuthContext, rs.Primary.Attributes["repository"], rs.Primary.Attributes["owner"], nil)
 
 		if response.StatusCode != http.StatusNotFound {
 			return fmt.Errorf("Defaults Reviewer still exists")
