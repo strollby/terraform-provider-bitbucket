@@ -248,8 +248,8 @@ func resourceDeploymentDelete(ctx context.Context, d *schema.ResourceData, m int
 		return diag.FromErr(err)
 	}
 
-	_, err = deployApi.DeleteEnvironmentForRepository(c.AuthContext, workspaceId, repoId, d.Get("uuid").(string))
-	if err := handleClientError(err); err != nil {
+	res, err := deployApi.DeleteEnvironmentForRepository(c.AuthContext, workspaceId, repoId, d.Get("uuid").(string))
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

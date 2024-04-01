@@ -69,8 +69,8 @@ func dataReadCurrentUser(ctx context.Context, d *schema.ResourceData, m interfac
 	httpClient := m.(Clients).httpClient
 	usersApi := c.ApiClient.UsersApi
 
-	curUser, _, err := usersApi.UserGet(c.AuthContext)
-	if err := handleClientError(err); err != nil {
+	curUser, res, err := usersApi.UserGet(c.AuthContext)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

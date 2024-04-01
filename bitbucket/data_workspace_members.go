@@ -61,8 +61,8 @@ func dataReadWorkspaceMembers(ctx context.Context, d *schema.ResourceData, m int
 	options := bitbucket.WorkspacesApiWorkspacesWorkspaceMembersGetOpts{}
 
 	for {
-		flattenAccountsReq, _, err := workspaceApi.WorkspacesWorkspaceMembersGet(c.AuthContext, workspace, &options)
-		if err := handleClientError(err); err != nil {
+		flattenAccountsReq, res, err := workspaceApi.WorkspacesWorkspaceMembersGet(c.AuthContext, workspace, &options)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 

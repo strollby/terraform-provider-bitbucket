@@ -52,8 +52,8 @@ func resourceDefaultReviewersCreate(ctx context.Context, d *schema.ResourceData,
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
 
-		_, _, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
-		if err := handleClientError(err); err != nil {
+		_, res, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -77,7 +77,7 @@ func resourceDefaultReviewersRead(ctx context.Context, d *schema.ResourceData, m
 
 	for {
 		reviewers, res, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersGet(c.AuthContext, repo, owner, &options)
-		if err := handleClientError(err); err != nil {
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 
@@ -121,16 +121,16 @@ func resourceDefaultReviewersUpdate(ctx context.Context, d *schema.ResourceData,
 
 	for _, user := range add.List() {
 		userName := user.(string)
-		_, _, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
-		if err := handleClientError(err); err != nil {
+		_, res, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernamePut(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
 
 	for _, user := range remove.List() {
 		userName := user.(string)
-		_, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
-		if err := handleClientError(err); err != nil {
+		res, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -146,8 +146,8 @@ func resourceDefaultReviewersDelete(ctx context.Context, d *schema.ResourceData,
 	workspace := d.Get("owner").(string)
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		_, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
-		if err := handleClientError(err); err != nil {
+		res, err := prApi.RepositoriesWorkspaceRepoSlugDefaultReviewersTargetUsernameDelete(c.AuthContext, repo, userName, workspace)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
