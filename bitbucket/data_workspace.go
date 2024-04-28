@@ -38,8 +38,8 @@ func dataReadWorkspace(ctx context.Context, d *schema.ResourceData, m interface{
 	workspaceApi := c.ApiClient.WorkspacesApi
 
 	workspace := d.Get("workspace").(string)
-	workspaceReq, _, err := workspaceApi.WorkspacesWorkspaceGet(c.AuthContext, workspace)
-	if err := handleClientError(err); err != nil {
+	workspaceReq, res, err := workspaceApi.WorkspacesWorkspaceGet(c.AuthContext, workspace)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

@@ -52,8 +52,8 @@ func resourceProjectDefaultReviewersCreate(ctx context.Context, d *schema.Resour
 
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		_, _, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
-		if err := handleClientError(err); err != nil {
+		_, res, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -76,7 +76,7 @@ func resourceProjectDefaultReviewersRead(ctx context.Context, d *schema.Resource
 
 	for {
 		reviewers, res, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersGet(c.AuthContext, project, workspace, &options)
-		if err := handleClientError(err); err != nil {
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 
@@ -120,16 +120,16 @@ func resourceProjectDefaultReviewersUpdate(ctx context.Context, d *schema.Resour
 
 	for _, user := range add.List() {
 		userName := user.(string)
-		_, _, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
-		if err := handleClientError(err); err != nil {
+		_, res, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserPut(c.AuthContext, project, userName, workspace)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
 
 	for _, user := range remove.List() {
 		userName := user.(string)
-		_, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
-		if err := handleClientError(err); err != nil {
+		res, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -145,8 +145,8 @@ func resourceProjectDefaultReviewersDelete(ctx context.Context, d *schema.Resour
 	workspace := d.Get("workspace").(string)
 	for _, user := range d.Get("reviewers").(*schema.Set).List() {
 		userName := user.(string)
-		_, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
-		if err := handleClientError(err); err != nil {
+		res, err := projectsApi.WorkspacesWorkspaceProjectsProjectKeyDefaultReviewersSelectedUserDelete(c.AuthContext, project, userName, workspace)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}

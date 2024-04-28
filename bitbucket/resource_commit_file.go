@@ -115,22 +115,22 @@ func resourceCommitFilePut(ctx context.Context, d *schema.ResourceData, m interf
 		return diag.FromErr(err)
 	}
 
-	response, err := client.PostWithContentType(fmt.Sprintf("2.0/repositories/%s/%s/src",
+	res, err := client.PostWithContentType(fmt.Sprintf("2.0/repositories/%s/%s/src",
 		workspace,
 		repoSlug,
 	), writer.FormDataContentType(), body)
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
-	if response.StatusCode != http.StatusCreated {
+	if res.StatusCode != http.StatusCreated {
 		return diag.FromErr(fmt.Errorf(""))
 	}
 
 	d.SetId(string(fmt.Sprintf("%s/%s/%s/%s", workspace, repoSlug, branch, filename)))
 
-	location, _ := response.Location()
+	location, _ := res.Location()
 	splitPath := strings.Split(location.Path, "/")
 	d.Set("commit_sha", splitPath[len(splitPath)-1])
 
@@ -146,9 +146,9 @@ func resourceCommitFileRead(ctx context.Context, d *schema.ResourceData, m inter
 	filename := d.Get("filename").(string)
 	commit := d.Get("commit_sha").(string)
 
-	_, _, err := sourceApi.RepositoriesWorkspaceRepoSlugSrcCommitPathGet(c.AuthContext, commit, filename, repoSlug, workspace, &bitbucket.SourceApiRepositoriesWorkspaceRepoSlugSrcCommitPathGetOpts{})
+	_, res, err := sourceApi.RepositoriesWorkspaceRepoSlugSrcCommitPathGet(c.AuthContext, commit, filename, repoSlug, workspace, &bitbucket.SourceApiRepositoriesWorkspaceRepoSlugSrcCommitPathGetOpts{})
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

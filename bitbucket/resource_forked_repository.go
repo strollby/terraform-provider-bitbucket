@@ -210,8 +210,8 @@ func resourceForkedRepositoryCreate(ctx context.Context, d *schema.ResourceData,
 	repoBody := &bitbucket.RepositoriesApiRepositoriesWorkspaceRepoSlugForksPostOpts{
 		Body: optional.NewInterface(requestRepo),
 	}
-	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugForksPost(c.AuthContext, parentRepoSlug, parentWorkspace, repoBody)
-	if err := handleClientError(err); err != nil {
+	_, res, err := repoApi.RepositoriesWorkspaceRepoSlugForksPost(c.AuthContext, parentRepoSlug, parentWorkspace, repoBody)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -228,7 +228,7 @@ func resourceForkedRepositoryCreate(ctx context.Context, d *schema.ResourceData,
 			)
 		}
 
-		if err := handleClientError(err); err != nil {
+		if err := handleClientError(pipelineResponse, err); err != nil {
 			return resource.NonRetryableError(err)
 		}
 		return nil
@@ -272,7 +272,7 @@ func resourceForkedRepositoryRead(ctx context.Context, d *schema.ResourceData, m
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -311,7 +311,7 @@ func resourceForkedRepositoryRead(ctx context.Context, d *schema.ResourceData, m
 	d.Set("link", flattenLinks(repoRes.Links))
 
 	pipelinesConfigReq, res, err := pipeApi.GetRepositoryPipelineConfig(c.AuthContext, workspace, repoSlug)
-	if err := handleClientError(err); err != nil && res.StatusCode != http.StatusNotFound {
+	if err := handleClientError(res, err); err != nil && res.StatusCode != http.StatusNotFound {
 		return diag.FromErr(err)
 	}
 

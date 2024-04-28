@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"regexp"
 	"testing"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/acctest"
@@ -252,6 +253,50 @@ func TestAccBitbucketRepository_inherit(t *testing.T) {
 	})
 }
 
+func TestAccBitbucketRepository_wrongCredential(t *testing.T) {
+	password := os.Getenv("BITBUCKET_PASSWORD")
+
+	workspace := os.Getenv("BITBUCKET_TEAM")
+	os.Setenv("BITBUCKET_PASSWORD", "WRONG")
+	rName := acctest.RandomWithPrefix("tf-test")
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck((t)) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckBitbucketRepositoryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config:      testAccBitbucketRepoConfig(workspace, rName),
+				ExpectError: regexp.MustCompile("401 Unauthorized"),
+			},
+		},
+	})
+
+	os.Setenv("BITBUCKET_PASSWORD", password)
+}
+
+func TestAccBitbucketRepository_duplicate(t *testing.T) {
+	rName := acctest.RandomWithPrefix("tf-test")
+	workspace := os.Getenv("BITBUCKET_TEAM")
+	resourceName := "bitbucket_repository.test"
+
+	resource.Test(t, resource.TestCase{
+		PreCheck:     func() { testAccPreCheck(t) },
+		Providers:    testAccProviders,
+		CheckDestroy: testAccCheckBitbucketRepositoryDestroy,
+		Steps: []resource.TestStep{
+			{
+				Config: testAccBitbucketRepoConfigDuplicate(workspace, rName),
+				Check: resource.ComposeTestCheckFunc(
+					testAccCheckBitbucketRepositoryExists(resourceName),
+					resource.TestCheckResourceAttr(resourceName, "name", rName),
+				),
+				ExpectError: regexp.MustCompile("400 Bad Request: .+"),
+			},
+		},
+	})
+}
+
 func testAccBitbucketRepoInheritConfig(workspace, rName string, enable bool) string {
 	return fmt.Sprintf(`
 resource "bitbucket_repository" "test" {
@@ -310,6 +355,24 @@ resource "bitbucket_repository" "test" {
   slug  = %[3]q
 }
 `, workspace, rName, rSlug)
+}
+
+func testAccBitbucketRepoConfigDuplicate(workspace, rName string) string {
+	return fmt.Sprintf(`
+resource "bitbucket_repository" "test" {
+  owner = %[1]q
+  name  = %[2]q
+}
+
+resource "bitbucket_repository" "test_duplicate" {
+  owner = %[1]q
+  name  = %[2]q
+
+	depends_on = [
+		bitbucket_repository.test
+	]
+}
+`, workspace, rName)
 }
 
 func testAccCheckBitbucketRepositoryDestroy(s *terraform.State) error {

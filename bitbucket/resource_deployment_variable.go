@@ -83,8 +83,8 @@ func resourceDeploymentVariableCreate(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	rvRes, _, err := pipeApi.CreateDeploymentVariable(c.AuthContext, *rvcr, workspace, repoSlug, deployment)
-	if err := handleClientError(err); err != nil {
+	rvRes, res, err := pipeApi.CreateDeploymentVariable(c.AuthContext, *rvcr, workspace, repoSlug, deployment)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -113,7 +113,7 @@ func resourceDeploymentVariableRead(ctx context.Context, d *schema.ResourceData,
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -162,8 +162,8 @@ func resourceDeploymentVariableUpdate(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	_, _, err = pipeApi.UpdateDeploymentVariable(c.AuthContext, *rvcr, workspace, repoSlug, deployment, d.Get("uuid").(string))
-	if err := handleClientError(err); err != nil {
+	_, res, err := pipeApi.UpdateDeploymentVariable(c.AuthContext, *rvcr, workspace, repoSlug, deployment, d.Get("uuid").(string))
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -180,8 +180,8 @@ func resourceDeploymentVariableDelete(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	_, err = pipeApi.DeleteDeploymentVariable(c.AuthContext, workspace, repoSlug, deployment, d.Get("uuid").(string))
-	if err := handleClientError(err); err != nil {
+	res, err := pipeApi.DeleteDeploymentVariable(c.AuthContext, workspace, repoSlug, deployment, d.Get("uuid").(string))
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

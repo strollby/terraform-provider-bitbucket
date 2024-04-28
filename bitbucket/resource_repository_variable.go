@@ -82,8 +82,8 @@ func resourceRepositoryVariableCreate(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	rvRes, _, err := pipeApi.CreateRepositoryPipelineVariable(c.AuthContext, rvcr, workspace, repoSlug)
-	if err := handleClientError(err); err != nil {
+	rvRes, res, err := pipeApi.CreateRepositoryPipelineVariable(c.AuthContext, rvcr, workspace, repoSlug)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -111,7 +111,7 @@ func resourceRepositoryVariableRead(ctx context.Context, d *schema.ResourceData,
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -141,8 +141,8 @@ func resourceRepositoryVariableUpdate(ctx context.Context, d *schema.ResourceDat
 
 	rvcr := newRepositoryVariableFromResource(d)
 
-	_, _, err = pipeApi.UpdateRepositoryPipelineVariable(c.AuthContext, rvcr, workspace, repoSlug, d.Get("uuid").(string))
-	if err := handleClientError(err); err != nil {
+	_, res, err := pipeApi.UpdateRepositoryPipelineVariable(c.AuthContext, rvcr, workspace, repoSlug, d.Get("uuid").(string))
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -159,8 +159,8 @@ func resourceRepositoryVariableDelete(ctx context.Context, d *schema.ResourceDat
 		return diag.FromErr(err)
 	}
 
-	_, err = pipeApi.DeleteRepositoryPipelineVariable(c.AuthContext, workspace, repoSlug, d.Get("uuid").(string))
-	if err := handleClientError(err); err != nil {
+	res, err := pipeApi.DeleteRepositoryPipelineVariable(c.AuthContext, workspace, repoSlug, d.Get("uuid").(string))
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

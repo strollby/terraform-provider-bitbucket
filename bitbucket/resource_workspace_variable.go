@@ -76,7 +76,7 @@ func resourceWorkspaceVariableCreate(ctx context.Context, d *schema.ResourceData
 
 	log.Printf("[DEBUG] Workspace Variable Create Request Res: %#v", res)
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -104,7 +104,7 @@ func resourceWorkspaceVariableRead(ctx context.Context, d *schema.ResourceData, 
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -133,8 +133,8 @@ func resourceWorkspaceVariableUpdate(ctx context.Context, d *schema.ResourceData
 
 	rvcr := newWorkspaceVariableFromResource(d)
 
-	_, _, err = pipeApi.UpdatePipelineVariableForWorkspace(c.AuthContext, rvcr, workspace, uuid)
-	if err := handleClientError(err); err != nil {
+	_, res, err := pipeApi.UpdatePipelineVariableForWorkspace(c.AuthContext, rvcr, workspace, uuid)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -150,8 +150,8 @@ func resourceWorkspaceVariableDelete(ctx context.Context, d *schema.ResourceData
 		return diag.FromErr(err)
 	}
 
-	_, err = pipeApi.DeletePipelineVariableForWorkspace(c.AuthContext, workspace, uuid)
-	if err := handleClientError(err); err != nil {
+	res, err := pipeApi.DeletePipelineVariableForWorkspace(c.AuthContext, workspace, uuid)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

@@ -3,19 +3,27 @@ package bitbucket
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 
 	"github.com/DrFaust92/bitbucket-go-client"
 )
 
-func handleClientError(err error) error {
-	httpErr, ok := err.(bitbucket.GenericSwaggerError)
+func handleClientError(httpResponse *http.Response, err error) error {
+	if httpResponse == nil || httpResponse.StatusCode < 400 {
+		return nil
+	}
+
+	clientHttpError, ok := err.(bitbucket.GenericSwaggerError)
 	if ok {
-		var httpError bitbucket.ModelError
-		if err := json.Unmarshal(httpErr.Body(), &httpError); err != nil {
-			return fmt.Errorf(string(httpErr.Body()))
+		var errorBody string
+		var bitbucketHttpError bitbucket.ModelError
+		if err := json.Unmarshal(clientHttpError.Body(), &bitbucketHttpError); err != nil {
+			errorBody = string(clientHttpError.Body()[:])
+		} else {
+			errorBody = bitbucketHttpError.Error_.Message
 		}
 
-		return fmt.Errorf("%s: %s", httpErr.Error(), httpError.Error_.Message)
+		return fmt.Errorf("%s: %s", httpResponse.Status, errorBody)
 	}
 
 	if err != nil {

@@ -54,8 +54,8 @@ func resourcePipelineSshKeysPut(ctx context.Context, d *schema.ResourceData, m i
 
 	repo := d.Get("repository").(string)
 	workspace := d.Get("workspace").(string)
-	_, _, err := pipeApi.UpdateRepositoryPipelineKeyPair(c.AuthContext, *pipeSshKey, workspace, repo)
-	if err := handleClientError(err); err != nil {
+	_, res, err := pipeApi.UpdateRepositoryPipelineKeyPair(c.AuthContext, *pipeSshKey, workspace, repo)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -81,7 +81,7 @@ func resourcePipelineSshKeysRead(ctx context.Context, d *schema.ResourceData, m 
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -102,8 +102,8 @@ func resourcePipelineSshKeysDelete(ctx context.Context, d *schema.ResourceData, 
 		return diag.FromErr(err)
 	}
 
-	_, err = pipeApi.DeleteRepositoryPipelineKeyPair(c.AuthContext, workspace, repo)
-	if err := handleClientError(err); err != nil {
+	res, err := pipeApi.DeleteRepositoryPipelineKeyPair(c.AuthContext, workspace, repo)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

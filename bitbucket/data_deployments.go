@@ -43,8 +43,8 @@ func dataReadDeployments(ctx context.Context, d *schema.ResourceData, m interfac
 	workspace := d.Get("workspace").(string)
 	repoId := d.Get("repository").(string)
 
-	deploymentsResp, _, err := deployApi.GetEnvironmentsForRepository(c.AuthContext, workspace, repoId, nil)
-	if err := handleClientError(err); err != nil {
+	deploymentsResp, res, err := deployApi.GetEnvironmentsForRepository(c.AuthContext, workspace, repoId, nil)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

@@ -102,8 +102,8 @@ func resourcePipelineScheduleCreate(ctx context.Context, d *schema.ResourceData,
 
 	repo := d.Get("repository").(string)
 	workspace := d.Get("workspace").(string)
-	schedule, _, err := pipeApi.CreateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo)
-	if err := handleClientError(err); err != nil {
+	schedule, res, err := pipeApi.CreateRepositoryPipelineSchedule(c.AuthContext, *pipeSchedule, workspace, repo)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -111,8 +111,8 @@ func resourcePipelineScheduleCreate(ctx context.Context, d *schema.ResourceData,
 
 	if !d.Get("enabled").(bool) {
 		pipeScheduleUpdate := expandUpdatePipelineSchedule(d)
-		_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeScheduleUpdate, workspace, repo, schedule.Uuid)
-		if err := handleClientError(err); err != nil {
+		_, res, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeScheduleUpdate, workspace, repo, schedule.Uuid)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -131,8 +131,8 @@ func resourcePipelineScheduleUpdate(ctx context.Context, d *schema.ResourceData,
 
 	pipeScheduleUpdate := expandUpdatePipelineSchedule(d)
 	log.Printf("[DEBUG] Pipeline Schedule Request: %#v", pipeScheduleUpdate)
-	_, _, err = pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeScheduleUpdate, workspace, repo, uuid)
-	if err := handleClientError(err); err != nil {
+	_, res, err := pipeApi.UpdateRepositoryPipelineSchedule(c.AuthContext, *pipeScheduleUpdate, workspace, repo, uuid)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -156,7 +156,7 @@ func resourcePipelineScheduleRead(ctx context.Context, d *schema.ResourceData, m
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -179,8 +179,8 @@ func resourcePipelineScheduleDelete(ctx context.Context, d *schema.ResourceData,
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	_, err = pipeApi.DeleteRepositoryPipelineSchedule(c.AuthContext, workspace, repo, uuid)
-	if err := handleClientError(err); err != nil {
+	res, err := pipeApi.DeleteRepositoryPipelineSchedule(c.AuthContext, workspace, repo, uuid)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

@@ -81,8 +81,8 @@ func resourcePipelineSshKnownHostsCreate(ctx context.Context, d *schema.Resource
 
 	repo := d.Get("repository").(string)
 	workspace := d.Get("workspace").(string)
-	host, _, err := pipeApi.CreateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo)
-	if err := handleClientError(err); err != nil {
+	host, res, err := pipeApi.CreateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -102,8 +102,8 @@ func resourcePipelineSshKnownHostsUpdate(ctx context.Context, d *schema.Resource
 
 	pipeSshKnownHost := expandPipelineSshKnownHost(d)
 	log.Printf("[DEBUG] Pipeline Ssh Key Request: %#v", pipeSshKnownHost)
-	_, _, err = pipeApi.UpdateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo, uuid)
-	if err := handleClientError(err); err != nil {
+	_, res, err := pipeApi.UpdateRepositoryPipelineKnownHost(c.AuthContext, *pipeSshKnownHost, workspace, repo, uuid)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -127,7 +127,7 @@ func resourcePipelineSshKnownHostsRead(ctx context.Context, d *schema.ResourceDa
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -148,8 +148,8 @@ func resourcePipelineSshKnownHostsDelete(ctx context.Context, d *schema.Resource
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	_, err = pipeApi.DeleteRepositoryPipelineKnownHost(c.AuthContext, workspace, repo, uuid)
-	if err := handleClientError(err); err != nil {
+	res, err := pipeApi.DeleteRepositoryPipelineKnownHost(c.AuthContext, workspace, repo, uuid)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

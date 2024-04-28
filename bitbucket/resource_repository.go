@@ -196,8 +196,8 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 		repoBody := &bitbucket.RepositoriesApiRepositoriesWorkspaceRepoSlugPutOpts{
 			Body: optional.NewInterface(repository),
 		}
-		_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
-		if err := handleClientError(err); err != nil {
+		_, res, err := repoApi.RepositoriesWorkspaceRepoSlugPut(c.AuthContext, repoSlug, workspace, repoBody)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -207,8 +207,8 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 		if v, ok := d.GetOkExists("pipelines_enabled"); ok {
 			pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
-			_, _, err := pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-			if err := handleClientError(err); err != nil {
+			_, res, err := pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
+			if err := handleClientError(res, err); err != nil {
 				return diag.FromErr(err)
 			}
 		}
@@ -260,8 +260,8 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 		Body: optional.NewInterface(repo),
 	}
 
-	_, _, err := repoApi.RepositoriesWorkspaceRepoSlugPost(c.AuthContext, repoSlug, workspace, repoBody)
-	if err := handleClientError(err); err != nil {
+	_, res, err := repoApi.RepositoriesWorkspaceRepoSlugPost(c.AuthContext, repoSlug, workspace, repoBody)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -271,8 +271,8 @@ func resourceRepositoryCreate(ctx context.Context, d *schema.ResourceData, m int
 	if v, ok := d.GetOkExists("pipelines_enabled"); ok {
 		pipelinesConfig := &bitbucket.PipelinesConfig{Enabled: v.(bool)}
 
-		_, _, err = pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
-		if err := handleClientError(err); err != nil {
+		_, res, err := pipeApi.UpdateRepositoryPipelineConfig(c.AuthContext, *pipelinesConfig, workspace, repoSlug)
+		if err := handleClientError(res, err); err != nil {
 			return diag.FromErr(err)
 		}
 	}
@@ -328,7 +328,7 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -357,7 +357,7 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 	d.Set("link", flattenLinks(repoRes.Links))
 
 	pipelinesConfigReq, res, err := pipeApi.GetRepositoryPipelineConfig(c.AuthContext, workspace, repoSlug)
-	if err := handleClientError(err); err != nil && res.StatusCode != http.StatusNotFound {
+	if err := handleClientError(res, err); err != nil && res.StatusCode != http.StatusNotFound {
 		return diag.FromErr(err)
 	}
 
@@ -409,8 +409,8 @@ func resourceRepositoryDelete(ctx context.Context, d *schema.ResourceData, m int
 	c := m.(Clients).genClient
 	repoApi := c.ApiClient.RepositoriesApi
 
-	_, err := repoApi.RepositoriesWorkspaceRepoSlugDelete(c.AuthContext, repoSlug, d.Get("owner").(string), nil)
-	if err := handleClientError(err); err != nil {
+	res, err := repoApi.RepositoriesWorkspaceRepoSlugDelete(c.AuthContext, repoSlug, d.Get("owner").(string), nil)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

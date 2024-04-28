@@ -105,15 +105,15 @@ func resourceDeployKeysRead(ctx context.Context, d *schema.ResourceData, m inter
 		return diag.FromErr(err)
 	}
 
-	deployKey, deployKeyRes, err := deployApi.RepositoriesWorkspaceRepoSlugDeployKeysKeyIdGet(c.AuthContext, keyId, repo, workspace)
+	deployKey, res, err := deployApi.RepositoriesWorkspaceRepoSlugDeployKeysKeyIdGet(c.AuthContext, keyId, repo, workspace)
 
-	if deployKeyRes.StatusCode == http.StatusNotFound {
+	if res.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Deploy Key (%s) not found, removing from state", d.Id())
 		d.SetId("")
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -164,8 +164,8 @@ func resourceDeployKeysDelete(ctx context.Context, d *schema.ResourceData, m int
 		return diag.FromErr(err)
 	}
 
-	_, err = deployApi.RepositoriesWorkspaceRepoSlugDeployKeysKeyIdDelete(c.AuthContext, keyId, repo, workspace)
-	if err := handleClientError(err); err != nil {
+	res, err := deployApi.RepositoriesWorkspaceRepoSlugDeployKeysKeyIdDelete(c.AuthContext, keyId, repo, workspace)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

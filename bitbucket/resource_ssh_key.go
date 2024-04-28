@@ -70,8 +70,8 @@ func resourceSshKeysCreate(ctx context.Context, d *schema.ResourceData, m interf
 	}
 
 	user := d.Get("user").(string)
-	sshKeyReq, _, err := sshApi.UsersSelectedUserSshKeysPost(c.AuthContext, user, sshKeyBody)
-	if err := handleClientError(err); err != nil {
+	sshKeyReq, res, err := sshApi.UsersSelectedUserSshKeysPost(c.AuthContext, user, sshKeyBody)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -97,7 +97,7 @@ func resourceSshKeysRead(ctx context.Context, d *schema.ResourceData, m interfac
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -129,8 +129,8 @@ func resourceSshKeysUpdate(ctx context.Context, d *schema.ResourceData, m interf
 		return diag.FromErr(err)
 	}
 
-	_, _, err = sshApi.UsersSelectedUserSshKeysKeyIdPut(c.AuthContext, keyId, user, sshKeyBody)
-	if err := handleClientError(err); err != nil {
+	_, res, err := sshApi.UsersSelectedUserSshKeysKeyIdPut(c.AuthContext, keyId, user, sshKeyBody)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -146,8 +146,8 @@ func resourceSshKeysDelete(ctx context.Context, d *schema.ResourceData, m interf
 		return diag.FromErr(err)
 	}
 
-	_, err = sshApi.UsersSelectedUserSshKeysKeyIdDelete(c.AuthContext, keyId, user)
-	if err := handleClientError(err); err != nil {
+	res, err := sshApi.UsersSelectedUserSshKeysKeyIdDelete(c.AuthContext, keyId, user)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

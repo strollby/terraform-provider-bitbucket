@@ -40,8 +40,8 @@ func dataReadUser(ctx context.Context, d *schema.ResourceData, m interface{}) di
 		selectedUser = v.(string)
 	}
 
-	user, _, err := usersApi.UsersSelectedUserGet(c.AuthContext, selectedUser)
-	if err := handleClientError(err); err != nil {
+	user, res, err := usersApi.UsersSelectedUserGet(c.AuthContext, selectedUser)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

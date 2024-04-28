@@ -120,8 +120,8 @@ func resourceProjectUpdate(ctx context.Context, d *schema.ResourceData, m interf
 	log.Printf("[DEBUG] Project Update Body: %#v", project)
 	project.Links = nil
 
-	prj, _, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyPut(c.AuthContext, *project, projectKey, d.Get("owner").(string))
-	if err := handleClientError(err); err != nil {
+	prj, res, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyPut(c.AuthContext, *project, projectKey, d.Get("owner").(string))
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -170,8 +170,8 @@ func resourceProjectCreate(ctx context.Context, d *schema.ResourceData, m interf
 
 	log.Printf("[DEBUG] Project Create Body: %#v", project)
 
-	projRes, _, err := projectApi.WorkspacesWorkspaceProjectsPost(c.AuthContext, *project, owner)
-	if err := handleClientError(err); err != nil {
+	projRes, res, err := projectApi.WorkspacesWorkspaceProjectsPost(c.AuthContext, *project, owner)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -209,7 +209,7 @@ func resourceProjectRead(ctx context.Context, d *schema.ResourceData, m interfac
 		return nil
 	}
 
-	if err := handleClientError(err); err != nil {
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
@@ -235,8 +235,8 @@ func resourceProjectDelete(ctx context.Context, d *schema.ResourceData, m interf
 	c := m.(Clients).genClient
 	projectApi := c.ApiClient.ProjectsApi
 
-	_, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyDelete(c.AuthContext, projectKey, d.Get("owner").(string))
-	if err := handleClientError(err); err != nil {
+	res, err := projectApi.WorkspacesWorkspaceProjectsProjectKeyDelete(c.AuthContext, projectKey, d.Get("owner").(string))
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 

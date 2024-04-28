@@ -51,8 +51,8 @@ func dataReadHookTypes(ctx context.Context, d *schema.ResourceData, m interface{
 	webhooksApi := c.ApiClient.WebhooksApi
 
 	subjectType := d.Get("subject_type").(string)
-	hookTypes, _, err := webhooksApi.HookEventsSubjectTypeGet(c.AuthContext, subjectType, nil)
-	if err := handleClientError(err); err != nil {
+	hookTypes, res, err := webhooksApi.HookEventsSubjectTypeGet(c.AuthContext, subjectType, nil)
+	if err := handleClientError(res, err); err != nil {
 		return diag.FromErr(err)
 	}
 
