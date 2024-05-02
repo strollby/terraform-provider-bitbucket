@@ -24,6 +24,8 @@ resource "bitbucket_branch_restriction" "master" {
   kind = "push"
   pattern = "master"
   
+  users = [ "my-bitbucket-username" ]
+
   groups {
     slug = "my-group"
     owner = "my-owner"
