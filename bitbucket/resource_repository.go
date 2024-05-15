@@ -202,6 +202,19 @@ func resourceRepositoryUpdate(ctx context.Context, d *schema.ResourceData, m int
 		}
 	}
 
+	// Check if the "owner" or "name" properties have changed. If so:
+	// 1. Update the resource ID used by Terraform to track the resource
+	// 2. Update the workspace and repoSlug variables used to make API calls
+	if d.HasChange("owner") || d.HasChange("name") {
+		_, newWorkspace := d.GetChange("owner")
+		_, newRepoSlug := d.GetChange("name")
+		workspace = newWorkspace.(string)
+		repoSlug = newRepoSlug.(string)
+		newId := fmt.Sprintf("%s/%s", workspace, repoSlug)
+		log.Printf("[DEBUG] repo owner/name has changed; setting new resource ID: %s", newId)
+		d.SetId(newId)
+	}
+
 	if d.HasChange("pipelines_enabled") {
 		// nolint:staticcheck
 		if v, ok := d.GetOkExists("pipelines_enabled"); ok {
@@ -313,6 +326,16 @@ func resourceRepositoryRead(ctx context.Context, d *schema.ResourceData, m inter
 	workspace, repoSlug, err := repositoryId(d.Id())
 	if err != nil {
 		diag.FromErr(err)
+	}
+
+	// Check if the "owner" or "name" properties have changed. If so, update the
+	// the workspace and repoSlug variables used to make API calls.
+	if d.HasChange("owner") || d.HasChange("name") {
+		_, newWorkspace := d.GetChange("owner")
+		_, newRepoSlug := d.GetChange("name")
+		workspace = newWorkspace.(string)
+		repoSlug = newRepoSlug.(string)
+		log.Printf("[DEBUG] repo owner/name has changed to %s/%s", workspace, repoSlug)
 	}
 
 	if repoSlug == "" {
