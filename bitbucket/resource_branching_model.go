@@ -25,7 +25,7 @@ type BranchingModel struct {
 type BranchModel struct {
 	IsValid            bool    `json:"is_valid,omitempty"`
 	Name               *string `json:"name"`
-	UseMainbranch      bool    `json:"use_mainbranch,omitempty"`
+	UseMainbranch      bool    `json:"use_mainbranch"`
 	BranchDoesNotExist bool    `json:"branch_does_not_exist,omitempty"`
 	Enabled            bool    `json:"enabled,omitempty"`
 }
