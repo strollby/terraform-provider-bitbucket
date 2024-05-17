@@ -31,7 +31,10 @@ type BranchModel struct {
 }
 
 type BranchType struct {
-	Enabled bool   `json:"enabled,omitempty"`
+	// TRICKY: This is a pointer to a bool because the API omits the field if
+	// it is true. json.Unmarshal treats a missing field as false, so we need to
+	// handle this case explicitly.
+	Enabled *bool  `json:"enabled"`
 	Kind    string `json:"kind,omitempty"`
 	Prefix  string `json:"prefix,omitempty"`
 }
@@ -181,7 +184,7 @@ func resourceBranchingModelsRead(ctx context.Context, d *schema.ResourceData, m 
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	branchingModelsReq, _ := client.Get(fmt.Sprintf("2.0/repositories/%s/%s/branching-model", owner, repo))
+	branchingModelsReq, _ := client.Get(fmt.Sprintf("2.0/repositories/%s/%s/branching-model/settings", owner, repo))
 
 	if branchingModelsReq.StatusCode == http.StatusNotFound {
 		log.Printf("[WARN] Branching Model (%s) not found, removing from state", d.Id())
@@ -204,6 +207,14 @@ func resourceBranchingModelsRead(ctx context.Context, d *schema.ResourceData, m 
 	decodeerr := json.Unmarshal(body, &branchingModel)
 	if decodeerr != nil {
 		return diag.FromErr(decodeerr)
+	}
+
+	// Set default value for Enabled if it is nil
+	for _, branchType := range branchingModel.BranchTypes {
+		if branchType.Enabled == nil {
+			defaultTrue := true
+			branchType.Enabled = &defaultTrue
+		}
 	}
 
 	log.Printf("[DEBUG] Branching Model Response Decoded: %#v", branchingModel)
@@ -302,11 +313,6 @@ func flattenBranchModel(rp *BranchModel, typ string) []interface{} {
 		"name":                  rp.Name,
 	}
 
-	// if production branch is disabled it wont show up in response and will show up without the proerty if enabled
-	if typ == "production" {
-		m["enabled"] = true
-	}
-
 	return []interface{}{m}
 }
 
@@ -333,7 +339,7 @@ func expandBranchTypes(tfList *schema.Set) []*BranchType {
 		}
 
 		if v, ok := tfMap["enabled"].(bool); ok {
-			bt.Enabled = v
+			bt.Enabled = &v
 		}
 
 		branchTypes = append(branchTypes, bt)
@@ -359,7 +365,7 @@ func flattenBranchTypes(branchTypes []*BranchType) []interface{} {
 		branchType := map[string]interface{}{
 			"kind":    btRaw.Kind,
 			"prefix":  btRaw.Prefix,
-			"enabled": true,
+			"enabled": btRaw.Enabled,
 		}
 
 		tfList = append(tfList, branchType)
