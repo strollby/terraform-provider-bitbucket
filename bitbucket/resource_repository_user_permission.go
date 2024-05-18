@@ -105,6 +105,10 @@ func resourceRepositoryUserPermissionPut(ctx context.Context, d *schema.Resource
 		d.SetId(fmt.Sprintf("%s:%s:%s", workspace, repoSlug, userSlug))
 	}
 
+	if userSlug != permission.User.UUID {
+		return diag.FromErr(fmt.Errorf("The user_id must be a UUID, but a user name was given (\"%s\"). The UUID for this user is \"%s\".", userSlug, permission.User.UUID))
+	}
+
 	return resourceRepositoryUserPermissionRead(ctx, d, m)
 }
 
