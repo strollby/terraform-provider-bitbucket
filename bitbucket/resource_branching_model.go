@@ -311,7 +311,11 @@ func flattenBranchModel(rp *BranchModel, typ string) []interface{} {
 		"is_valid":              rp.IsValid,
 		"use_mainbranch":        rp.UseMainbranch,
 		"name":                  rp.Name,
-		"enabled":               rp.Enabled,
+	}
+
+	// Production has an "enabled" field that is not present in development.
+	if typ == "production" {
+		m["enabled"] = rp.Enabled
 	}
 
 	return []interface{}{m}
